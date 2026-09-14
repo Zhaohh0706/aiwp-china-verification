@@ -27,8 +27,13 @@ from . import verify
 from .fetch import MODEL_LABEL
 
 ROOT = Path(__file__).resolve().parents[2]
-PAIRS = ROOT / "data" / "pairs.parquet"
 REPORTS = ROOT / "reports"
+
+# The two variables verified so far, each against a real station observation.
+VARIABLES = {
+    "temperature_2m": ROOT / "data" / "pairs.parquet",
+    "wind_speed_10m": ROOT / "data" / "pairs_wind_speed_10m.parquet",
+}
 
 # Six models with the full five-day archive.
 CORE_MODELS = [
@@ -48,10 +53,42 @@ def label(frame: pd.DataFrame, column: str = "model") -> pd.DataFrame:
     return out
 
 
-def load() -> pd.DataFrame:
-    if not PAIRS.exists():
-        raise SystemExit("run `python -m aiwp.build_dataset` first")
-    return pd.read_parquet(PAIRS)
+def load(variable: str = "temperature_2m") -> pd.DataFrame:
+    path = VARIABLES[variable]
+    if not path.exists():
+        raise SystemExit(
+            f"run `python -m aiwp.build_dataset --variable {variable}` first"
+        )
+    return pd.read_parquet(path)
+
+
+def available() -> list[str]:
+    return [name for name, path in VARIABLES.items() if path.exists()]
+
+
+def ranking_across_variables() -> pd.DataFrame:
+    """Each model's rank on every verified variable, China, day 1.
+
+    The single most useful table in the study, because the answer to "which
+    model is best" turns out to depend entirely on which variable you asked
+    about — and a buyer choosing a provider on one headline number is choosing
+    wrong for every other use they have.
+    """
+    columns = {}
+    for variable in available():
+        pairs = load(variable)
+        china = sets(pairs[pairs["group"] == "china"])["core"]
+        board = (
+            verify.scorecard(china[china["lead_days"] == 1])
+            .sort_values("rmse_c")
+            .reset_index(drop=True)
+        )
+        columns[variable] = pd.Series(board.index + 1, index=board["model"])
+    table = pd.DataFrame(columns)
+    if len(table.columns) == 2:
+        first, second = table.columns
+        table["rank_change"] = table[first] - table[second]
+    return table.sort_values(table.columns[0])
 
 
 def sets(pairs: pd.DataFrame) -> dict[str, pd.DataFrame]:
@@ -63,10 +100,10 @@ def sets(pairs: pd.DataFrame) -> dict[str, pd.DataFrame]:
     }
 
 
-def main() -> None:
+def main(variable: str = "temperature_2m") -> None:
     REPORTS.mkdir(parents=True, exist_ok=True)
-    pairs = load()
-    results: dict = {"dataset": {}}
+    pairs = load(variable)
+    results: dict = {"variable": variable, "dataset": {}}
 
     results["dataset"] = {
         "pairs": int(len(pairs)),
@@ -88,7 +125,7 @@ def main() -> None:
                 "stations": int(frame["station"].nunique()),
             }
             board = verify.scorecard(frame)
-            board.to_csv(REPORTS / f"scorecard_{key}.csv", index=False)
+            board.to_csv(REPORTS / f"scorecard_{variable}_{key}.csv", index=False)
             results[key]["scorecard_day1"] = (
                 board[board["lead_days"] == 1].to_dict("records")
             )
@@ -98,7 +135,7 @@ def main() -> None:
 
     # Headline: every model against ECMWF at day 1, paired.
     ranking = verify.rank_table(china_core, lead=1, reference=REFERENCE)
-    ranking.to_csv(REPORTS / "paired_vs_ecmwf_china_day1.csv", index=False)
+    ranking.to_csv(REPORTS / f"paired_vs_ecmwf_china_day1_{variable}.csv", index=False)
     results["paired_vs_ecmwf_china_day1"] = ranking.to_dict("records")
 
     # Does bias explain the ranking?  Compare raw and debiased RMSE.
@@ -108,7 +145,7 @@ def main() -> None:
     bias_effect["rank_debiased"] = bias_effect["debiased_rmse_c"].rank().astype(int)
     bias_effect["rank_change"] = bias_effect["rank_raw"] - bias_effect["rank_debiased"]
     bias_effect = bias_effect.sort_values("rmse_c")
-    bias_effect.to_csv(REPORTS / "bias_vs_skill_china_day1.csv", index=False)
+    bias_effect.to_csv(REPORTS / f"bias_vs_skill_china_day1_{variable}.csv", index=False)
     results["bias_vs_skill_china_day1"] = bias_effect.to_dict("records")
 
     # Is the cold bias a China effect or a global one?
@@ -119,7 +156,7 @@ def main() -> None:
         ),
     }
 
-    (REPORTS / "results.json").write_text(
+    (REPORTS / f"results_{variable}.json").write_text(
         json.dumps(results, indent=2, ensure_ascii=False, default=float), encoding="utf-8"
     )
 
@@ -164,5 +201,28 @@ def _print(results, china_core, control_core, bias_effect, ranking) -> None:
     print(f"\n结果写入 {REPORTS}")
 
 
+def run_all() -> None:
+    for variable in available():
+        print(f"\n{'=' * 78}\n{variable}\n{'=' * 78}")
+        main(variable)
+
+    table = ranking_across_variables()
+    if len(table.columns) > 1:
+        table.to_csv(REPORTS / "rank_across_variables.csv")
+        shown = table.copy()
+        shown.index = [MODEL_LABEL.get(m, m) for m in shown.index]
+        print(f"\n{'=' * 78}\n同一批模式在两个变量上的名次\n{'=' * 78}")
+        print(shown.to_string())
+        print(
+            "\n名次随变量而变，且变化很大。用单一总分挑供应商，"
+            "对另一半用途就是挑错了。"
+        )
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] in VARIABLES:
+        main(sys.argv[1])
+    else:
+        run_all()

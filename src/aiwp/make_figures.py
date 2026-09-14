@@ -14,7 +14,14 @@ import numpy as np
 import pandas as pd
 
 from .fetch import MODEL_LABEL
-from .run_verification import CORE_MODELS, REPORTS, load, sets
+from .run_verification import (
+    CORE_MODELS,
+    REPORTS,
+    available,
+    load,
+    ranking_across_variables,
+    sets,
+)
 from . import verify
 
 plt.rcParams.update(
@@ -44,7 +51,7 @@ def _colour(model: str, best: str) -> str:
     return OTHER
 
 
-def figure_lead_growth(china: pd.DataFrame) -> None:
+def figure_lead_growth(china: pd.DataFrame, suffix: str = "", variable_label: str = "daily maximum 2 m temperature (°C)") -> None:
     growth = verify.error_growth(china)
     best = (
         growth[growth["lead_days"] == 1].sort_values("rmse_c")["model"].iloc[0]
@@ -73,19 +80,19 @@ def figure_lead_growth(china: pd.DataFrame) -> None:
             color=colour,
         )
     ax.set_xlabel("Lead time (days)")
-    ax.set_ylabel("RMSE of daily maximum (°C)")
+    ax.set_ylabel(f"RMSE, {variable_label}")
     ax.set_xticks(sorted(growth["lead_days"].unique()))
     ax.set_xlim(0.8, 6.4)
     ax.set_title(
-        "Daily maximum temperature at nine Chinese airport stations, 2024-07 to 2025-08",
+        f"{variable_label.capitalize()}, nine Chinese airport stations, 2024-07 to 2025-08",
         fontsize=10,
     )
     fig.tight_layout()
-    fig.savefig(FIGURES / "lead_growth.png", bbox_inches="tight")
+    fig.savefig(FIGURES / f"lead_growth{suffix}.png", bbox_inches="tight")
     plt.close(fig)
 
 
-def figure_bias_vs_skill(china: pd.DataFrame) -> None:
+def figure_bias_vs_skill(china: pd.DataFrame, suffix: str = "", variable_label: str = "daily maximum 2 m temperature (°C)") -> None:
     """How much of each model's error is a constant offset."""
     board = verify.scorecard(china[china["lead_days"] == 1])
     board["bias_share"] = 100.0 * board["bias_c"] ** 2 / board["rmse_c"] ** 2
@@ -108,7 +115,7 @@ def figure_bias_vs_skill(china: pd.DataFrame) -> None:
     axes[0].set_yticks(y)
     axes[0].set_yticklabels([MODEL_LABEL.get(m, m) for m in order["model"]], fontsize=8)
     axes[0].invert_yaxis()
-    axes[0].set_xlabel("RMSE at day 1 (°C)")
+    axes[0].set_xlabel(f"RMSE at day 1 — {variable_label}")
     axes[0].set_title("Error, split into offset and the rest", fontsize=9.5)
     axes[0].legend(fontsize=7, frameon=False, loc="lower right")
 
@@ -126,22 +133,23 @@ def figure_bias_vs_skill(china: pd.DataFrame) -> None:
             color=colour,
         )
     axes[1].axvline(0, color="#334155", linewidth=0.8, linestyle="--")
-    axes[1].set_xlabel("Mean bias at day 1 (°C)   ← cold        warm →")
-    axes[1].set_ylabel("RMSE after removing the bias (°C)")
+    axes[1].set_xlabel("Mean bias at day 1   ← low        high →")
+    axes[1].set_ylabel("RMSE after removing the bias")
     axes[1].set_title("A small bias is not the same as a good model", fontsize=9.5)
-    axes[1].set_xlim(-1.9, 0.4)
+
 
     fig.suptitle(
-        "Every model runs cold on the daily maximum; they differ in how much else is wrong",
+        f"{variable_label.capitalize()}: every model runs low; "
+        f"they differ in how much of that is a constant",
         fontsize=10.5,
         y=1.03,
     )
     fig.tight_layout()
-    fig.savefig(FIGURES / "bias_vs_skill.png", bbox_inches="tight")
+    fig.savefig(FIGURES / f"bias_vs_skill{suffix}.png", bbox_inches="tight")
     plt.close(fig)
 
 
-def figure_station_bias(china: pd.DataFrame) -> None:
+def figure_station_bias(china: pd.DataFrame, suffix: str = "", variable_label: str = "daily maximum 2 m temperature (°C)") -> None:
     day1 = china[china["lead_days"] == 1]
     table = day1.pivot_table(
         index="station", columns="model", values="error_c", aggfunc="mean"
@@ -165,20 +173,82 @@ def figure_station_bias(china: pd.DataFrame) -> None:
                 j, i, f"{value:.1f}", ha="center", va="center", fontsize=7,
                 color="white" if abs(value) > 0.6 * limit else "#1f2937",
             )
-    ax.set_title("Mean bias at day 1 by station (°C); blue is cold", fontsize=10)
+    ax.set_title(f"Mean bias at day 1 by station, {variable_label}; blue is low", fontsize=10)
     fig.colorbar(image, ax=ax, fraction=0.025, pad=0.02)
     fig.tight_layout()
-    fig.savefig(FIGURES / "station_bias.png", bbox_inches="tight")
+    fig.savefig(FIGURES / f"station_bias{suffix}.png", bbox_inches="tight")
+    plt.close(fig)
+
+
+# Figure text is English throughout: this repository's README is English, and
+# the default matplotlib font has no CJK glyphs, which silently renders Chinese
+# labels as empty boxes rather than failing.
+VARIABLE_LABEL = {
+    "temperature_2m": "daily maximum 2 m temperature (°C)",
+    "wind_speed_10m": "daily mean 10 m wind speed (m/s)",
+}
+
+
+def figure_rank_reversal() -> None:
+    """The finding the whole study turns on: rank depends on the variable.
+
+    A slope chart rather than two bar charts, because the point is not where
+    each model sits on either list — it is how far it moves between them.
+    """
+    table = ranking_across_variables()
+    if len(table.columns) < 2:
+        return
+    left, right = table.columns[0], table.columns[1]
+
+    fig, ax = plt.subplots(figsize=(6.6, 4.2))
+    for model, row in table.iterrows():
+        change = abs(row[left] - row[right])
+        colour = _colour(model, best="")
+        if change >= 4:
+            colour = HIGHLIGHT if model == "cma_grapes_global" else "#7c3aed"
+        ax.plot(
+            [0, 1], [row[left], row[right]],
+            marker="o", markersize=6,
+            linewidth=2.4 if change >= 4 else 1.2,
+            color=colour, zorder=3 if change >= 4 else 2,
+        )
+        ax.annotate(
+            MODEL_LABEL.get(model, model), (0, row[left]),
+            textcoords="offset points", xytext=(-10, -3),
+            ha="right", fontsize=8, color=colour,
+        )
+        ax.annotate(
+            MODEL_LABEL.get(model, model), (1, row[right]),
+            textcoords="offset points", xytext=(10, -3),
+            ha="left", fontsize=8, color=colour,
+        )
+
+    ax.set_xlim(-0.55, 1.55)
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels([VARIABLE_LABEL.get(left, left), VARIABLE_LABEL.get(right, right)])
+    ax.invert_yaxis()
+    ax.set_yticks(range(1, len(table) + 1))
+    ax.set_ylabel("Rank at day 1 (1 is best)")
+    ax.set_title(
+        "The best model depends entirely on which variable you asked about",
+        fontsize=10.5,
+    )
+    ax.grid(axis="x", visible=False)
+    fig.tight_layout()
+    fig.savefig(FIGURES / "rank_reversal.png", bbox_inches="tight")
     plt.close(fig)
 
 
 def main() -> None:
     FIGURES.mkdir(parents=True, exist_ok=True)
-    pairs = load()
-    china = sets(pairs[pairs["group"] == "china"])["core"]
-    figure_lead_growth(china)
-    figure_bias_vs_skill(china)
-    figure_station_bias(china)
+    for variable in available():
+        pairs = load(variable)
+        china = sets(pairs[pairs["group"] == "china"])["core"]
+        suffix = "" if variable == "temperature_2m" else f"_{variable}"
+        figure_lead_growth(china, suffix, VARIABLE_LABEL.get(variable, variable))
+        figure_bias_vs_skill(china, suffix, VARIABLE_LABEL.get(variable, variable))
+        figure_station_bias(china, suffix, VARIABLE_LABEL.get(variable, variable))
+    figure_rank_reversal()
     print(f"figures written to {FIGURES}")
 
 

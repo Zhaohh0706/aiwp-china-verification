@@ -145,30 +145,42 @@ def test_paired_difference_needs_both_models():
 # --------------------------------------------------------------------------
 
 
-def test_daily_max_discards_days_with_too_few_reports():
+def test_daily_reduction_discards_days_with_too_few_reports():
     hours = pd.date_range("2025-06-01", periods=30, freq="h")
-    frame = pd.DataFrame({"time": hours, "temp_c": np.arange(30.0), "station": "bj"})
-    out = fetch.daily_max(frame, min_hours=18)
+    frame = pd.DataFrame({"time": hours, "value": np.arange(30.0), "station": "bj"})
+    out = fetch.daily(frame, "max", min_hours=18)
     # The first day has 24 hours and survives; the second has 6 and does not.
     assert len(out) == 1
-    assert out["temp_max_c"].iloc[0] == pytest.approx(23.0)
+    assert out["daily_value"].iloc[0] == pytest.approx(23.0)
 
 
-def test_daily_max_keeps_model_and_lead_apart():
+def test_daily_reduction_keeps_model_and_lead_apart():
     hours = pd.date_range("2025-06-01", periods=24, freq="h")
     frame = pd.concat(
         [
             pd.DataFrame(
-                {"time": hours, "temp_c": 10.0, "station": "bj", "model": "a", "lead_days": 1}
+                {"time": hours, "value": 10.0, "station": "bj", "model": "a", "lead_days": 1}
             ),
             pd.DataFrame(
-                {"time": hours, "temp_c": 20.0, "station": "bj", "model": "a", "lead_days": 2}
+                {"time": hours, "value": 20.0, "station": "bj", "model": "a", "lead_days": 2}
             ),
         ]
     )
-    out = fetch.daily_max(frame)
+    out = fetch.daily(frame, "max")
     assert len(out) == 2
-    assert sorted(out["temp_max_c"]) == [10.0, 20.0]
+    assert sorted(out["daily_value"]) == [10.0, 20.0]
+
+
+def test_temperature_reduces_by_maximum_and_wind_by_mean():
+    """The reduction is a modelling choice, not a detail: cooling load follows
+    the peak, a wind resource follows the whole day."""
+    assert fetch.VARIABLES["temperature_2m"]["reduce"] == "max"
+    assert fetch.VARIABLES["wind_speed_10m"]["reduce"] == "mean"
+
+
+def test_knots_convert_to_metres_per_second():
+    # 10 kt is 5.14 m/s; getting this backwards doubles a wind resource.
+    assert 10 * fetch.KNOTS_TO_MS == pytest.approx(5.14444, abs=1e-4)
 
 
 def test_station_list_is_coherent():
