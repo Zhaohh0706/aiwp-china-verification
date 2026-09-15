@@ -15,8 +15,10 @@ import pandas as pd
 
 from .fetch import IS_AI, MODEL_LABEL
 from .run_verification import (
+    AI_MODEL,
     CORE_MODELS,
     REPORTS,
+    VERIFICATION_GROUP,
     ai_sets,
     available,
     load,
@@ -55,7 +57,7 @@ def _colour(model: str, best: str) -> str:
 def figure_lead_growth(china: pd.DataFrame, suffix: str = "", variable_label: str = "daily maximum 2 m temperature (°C)") -> None:
     growth = verify.error_growth(china)
     best = (
-        growth[growth["lead_days"] == 1].sort_values("rmse_c")["model"].iloc[0]
+        growth[growth["lead_days"] == 1].sort_values("rmse")["model"].iloc[0]
     )
 
     fig, ax = plt.subplots(figsize=(6.6, 3.6))
@@ -64,7 +66,7 @@ def figure_lead_growth(china: pd.DataFrame, suffix: str = "", variable_label: st
         colour = _colour(model, best)
         ax.plot(
             group["lead_days"],
-            group["rmse_c"],
+            group["rmse"],
             marker="o",
             markersize=3.5,
             linewidth=1.8 if colour != OTHER else 1.1,
@@ -74,7 +76,7 @@ def figure_lead_growth(china: pd.DataFrame, suffix: str = "", variable_label: st
         )
         ax.annotate(
             MODEL_LABEL.get(model, model),
-            (group["lead_days"].iloc[-1], group["rmse_c"].iloc[-1]),
+            (group["lead_days"].iloc[-1], group["rmse"].iloc[-1]),
             textcoords="offset points",
             xytext=(5, -2),
             fontsize=7,
@@ -96,19 +98,19 @@ def figure_lead_growth(china: pd.DataFrame, suffix: str = "", variable_label: st
 def figure_bias_vs_skill(china: pd.DataFrame, suffix: str = "", variable_label: str = "daily maximum 2 m temperature (°C)") -> None:
     """How much of each model's error is a constant offset."""
     board = verify.scorecard(china[china["lead_days"] == 1])
-    board["bias_share"] = 100.0 * board["bias_c"] ** 2 / board["rmse_c"] ** 2
-    best = board.sort_values("rmse_c")["model"].iloc[0]
+    board["bias_share"] = 100.0 * board["bias"] ** 2 / board["rmse"] ** 2
+    best = board.sort_values("rmse")["model"].iloc[0]
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 3.6))
 
-    order = board.sort_values("rmse_c")
+    order = board.sort_values("rmse")
     y = np.arange(len(order))
     colours = [_colour(m, best) for m in order["model"]]
-    axes[0].barh(y, order["debiased_rmse_c"], color=colours, label="error left after debiasing")
+    axes[0].barh(y, order["debiased_rmse"], color=colours, label="error left after debiasing")
     axes[0].barh(
         y,
-        order["rmse_c"] - order["debiased_rmse_c"],
-        left=order["debiased_rmse_c"],
+        order["rmse"] - order["debiased_rmse"],
+        left=order["debiased_rmse"],
         color=colours,
         alpha=0.35,
         label="the part a constant would remove",
@@ -123,11 +125,11 @@ def figure_bias_vs_skill(china: pd.DataFrame, suffix: str = "", variable_label: 
     for _, row in board.iterrows():
         colour = _colour(row["model"], best)
         axes[1].scatter(
-            row["bias_c"], row["debiased_rmse_c"], s=52, color=colour, zorder=3
+            row["bias"], row["debiased_rmse"], s=52, color=colour, zorder=3
         )
         axes[1].annotate(
             MODEL_LABEL.get(row["model"], row["model"]),
-            (row["bias_c"], row["debiased_rmse_c"]),
+            (row["bias"], row["debiased_rmse"]),
             textcoords="offset points",
             xytext=(6, 3),
             fontsize=7.5,
@@ -153,7 +155,7 @@ def figure_bias_vs_skill(china: pd.DataFrame, suffix: str = "", variable_label: 
 def figure_station_bias(china: pd.DataFrame, suffix: str = "", variable_label: str = "daily maximum 2 m temperature (°C)") -> None:
     day1 = china[china["lead_days"] == 1]
     table = day1.pivot_table(
-        index="station", columns="model", values="error_c", aggfunc="mean"
+        index="station", columns="model", values="error", aggfunc="mean"
     )
     table = table[[m for m in CORE_MODELS if m in table.columns]]
 
@@ -187,6 +189,15 @@ def figure_station_bias(china: pd.DataFrame, suffix: str = "", variable_label: s
 VARIABLE_LABEL = {
     "temperature_2m": "daily maximum 2 m temperature (°C)",
     "wind_speed_10m": "daily mean 10 m wind speed (m/s)",
+    # Hourly mean irradiance summed over the day, so energy and not power.
+    "shortwave_radiation": "daily solar irradiation (Wh/m²)",
+}
+
+# Where each variable is verified, for figure captions.  Irradiance is scored
+# at the photovoltaic sites against a satellite retrieval, not at the airports.
+GROUP_LABEL = {
+    "china": "Chinese airport stations",
+    "pv": "eight Chinese photovoltaic sites",
 }
 
 
@@ -243,37 +254,175 @@ def figure_rank_reversal() -> None:
 AI_COLOUR = "#7c3aed"
 
 
+def figure_rank_reversal_ai() -> None:
+    """The same models, three variables, one shared six-month window.
+
+    The two-variable version of this chart uses the full archive, where only
+    temperature and wind exist. This one is restricted to the months where all
+    three variables and the AI model are present, so the ranks are comparable
+    across the whole width of it rather than across different periods.
+    """
+    # Every column must rank the same models.  JMA GSM publishes no surface
+    # radiation, so a chart that ranked seven models on two variables and six on
+    # the third would put "sixth of seven" and "last of six" at the same height
+    # and invite the reader to compare them.  The set is narrowed to the models
+    # present everywhere, and the ones dropped are named in the caption.
+    scored_by_variable = {}
+    for variable in available(ai=True):
+        pairs = load(variable, ai=True)
+        group = VERIFICATION_GROUP[variable]
+        scored_by_variable[variable] = ai_sets(
+            pairs[pairs["group"] == group], variable
+        )
+    if len(scored_by_variable) < 3:
+        return
+
+    shared = set.intersection(
+        *(set(frame["model"].unique()) for frame in scored_by_variable.values())
+    )
+    dropped = sorted(
+        set.union(*(set(f["model"].unique()) for f in scored_by_variable.values()))
+        - shared
+    )
+
+    columns = {}
+    for variable, scored in scored_by_variable.items():
+        day1 = scored[(scored["lead_days"] == 1) & (scored["model"].isin(shared))]
+        board = verify.scorecard(day1).sort_values("rmse").reset_index(drop=True)
+        columns[variable] = pd.Series(board.index + 1, index=board["model"])
+
+    table = pd.DataFrame(columns)
+    order = list(table.columns)
+
+    fig, ax = plt.subplots(figsize=(8.4, 4.6))
+    span = (table.max(axis=1) - table.min(axis=1)).fillna(0)
+    for model, row in table.iterrows():
+        is_ai = model in IS_AI
+        colour = AI_COLOUR if is_ai else _colour(model, best="")
+        if not is_ai and span.loc[model] >= 4:
+            colour = HIGHLIGHT if model == "cma_grapes_global" else "#0369a1"
+        points = [(i, row[c]) for i, c in enumerate(order) if pd.notna(row[c])]
+        ax.plot(
+            [x for x, _ in points], [y for _, y in points],
+            marker="o", markersize=6,
+            linewidth=2.6 if (is_ai or span.loc[model] >= 4) else 1.1,
+            color=colour, zorder=4 if is_ai else (3 if span.loc[model] >= 4 else 2),
+        )
+        first_x, first_y = points[0]
+        last_x, last_y = points[-1]
+        name = MODEL_LABEL.get(model, model)
+        weight = "bold" if is_ai else "normal"
+        ax.annotate(name, (first_x, first_y), textcoords="offset points",
+                    xytext=(-10, -3), ha="right", fontsize=8,
+                    color=colour, fontweight=weight)
+        ax.annotate(name, (last_x, last_y), textcoords="offset points",
+                    xytext=(10, -3), ha="left", fontsize=8,
+                    color=colour, fontweight=weight)
+
+    ax.set_xlim(-0.9, len(order) - 1 + 0.9)
+    ax.set_xticks(range(len(order)))
+    ax.set_xticklabels(
+        [VARIABLE_LABEL.get(c, c).replace(" (", "\n(") for c in order], fontsize=8.5
+    )
+    ax.invert_yaxis()
+    ax.set_yticks(range(1, int(table.max().max()) + 1))
+    ax.set_ylabel("Rank at day 1 (1 is best)")
+    ax.set_title(
+        f"No model is best at everything: {len(table)} models ranked over one "
+        f"shared window, 2025-03 to 2025-08",
+        fontsize=10.5,
+    )
+    if dropped:
+        names = ", ".join(MODEL_LABEL.get(m, m) for m in dropped)
+        ax.text(
+            0.5, -0.17,
+            f"{names} excluded: not published for every variable in this window",
+            transform=ax.transAxes, ha="center", fontsize=7.5, color="#64748b",
+        )
+    ax.grid(axis="x", visible=False)
+    fig.tight_layout()
+    fig.savefig(FIGURES / "rank_reversal_ai_window.png", bbox_inches="tight")
+    plt.close(fig)
+
+
+
+def _ordinal(n: int) -> str:
+    """1st, 2nd, 3rd — not 3th."""
+    if 11 <= n % 100 <= 13:
+        return f"{n}th"
+    return f"{n}{ {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th') }".replace(" ", "")
+
+
+def _ai_titles(growth: pd.DataFrame) -> tuple[str, str]:
+    """Panel titles read off the curves rather than written from memory.
+
+    The first version of this figure was titled "AIFS starts behind" and "AIFS
+    degrades the slowest". Both were true of temperature. On irradiance AIFS is
+    level at day 1 and third on growth, and the titles would have contradicted
+    the lines underneath them.
+    """
+    board = growth.pivot(index="model", columns="lead_days", values="rmse")
+    if AI_MODEL not in board.index:
+        return "Absolute error by lead time", "Growth relative to day 1"
+
+    first, last = board.columns.min(), board.columns.max()
+    day1_rank = int(board[first].rank().loc[AI_MODEL])
+    gap = 100.0 * (board.loc[AI_MODEL, first] / board[first].min() - 1.0)
+    relative = board.div(board[first], axis=0)
+    growth_rank = int(relative[last].rank().loc[AI_MODEL])
+    far_rank = int(board[last].rank().loc[AI_MODEL])
+
+    if day1_rank == 1:
+        start = "AIFS leads from day 1"
+    elif gap < 2.0:
+        start = "AIFS is level at day 1"
+    else:
+        start = f"AIFS starts {gap:.0f}% behind"
+    finish = f", first by day {last}" if far_rank == 1 and day1_rank != 1 else ""
+    left = f"Absolute error: {start}{finish}"
+
+    right = (
+        "Growth: AIFS degrades the slowest"
+        if growth_rank == 1
+        else f"Growth: AIFS is {_ordinal(growth_rank)} of {len(board)}"
+    )
+    return left, right
+
+
 def figure_ai_vs_physics() -> None:
     """Where a machine-learned model sits, and how that changes with lead.
 
     Two panels because the day-1 ranking and the growth rate say different
-    things, and quoting either alone misleads. AIFS is mid-pack at day 1 and has
-    the flattest error growth in the set; a scorecard at one lead hides that
-    entirely.
+    things, and quoting either alone misleads. Which of them flatters AIFS
+    depends on the variable, so both panel titles are computed.
     """
     for variable in available(ai=True):
         pairs = load(variable, ai=True)
-        china = ai_sets(pairs[pairs["group"] == "china"])
-        growth = verify.error_growth(china)
-        day1 = growth[growth["lead_days"] == 1].set_index("model")["rmse_c"]
+        group = VERIFICATION_GROUP[variable]
+        scored = ai_sets(pairs[pairs["group"] == group], variable)
+        growth = verify.error_growth(scored)
+        day1 = growth[growth["lead_days"] == 1].set_index("model")["rmse"]
         best = day1.idxmin()
 
         fig, axes = plt.subplots(1, 2, figsize=(10.4, 3.8))
-        for model, group in growth.groupby("model"):
-            group = group.sort_values("lead_days")
+        for model, block in growth.groupby("model"):
+            block = block.sort_values("lead_days")
             is_ai = model in IS_AI
             colour = AI_COLOUR if is_ai else _colour(model, best)
             width = 2.4 if is_ai else (1.7 if colour != OTHER else 1.1)
-            axes[0].plot(group["lead_days"], group["rmse_c"], marker="o",
+            axes[0].plot(block["lead_days"], block["rmse"], marker="o",
                          markersize=3.5, linewidth=width, color=colour,
                          zorder=4 if is_ai else 2)
             # Normalised to its own day-1 value: the shape, not the level.
-            axes[1].plot(group["lead_days"], group["rmse_c"] / group["rmse_c"].iloc[0],
+            axes[1].plot(block["lead_days"], block["rmse"] / block["rmse"].iloc[0],
                          marker="o", markersize=3.5, linewidth=width, color=colour,
                          zorder=4 if is_ai else 2)
-            for ax, series in ((axes[0], group["rmse_c"]), (axes[1], group["rmse_c"] / group["rmse_c"].iloc[0])):
+            for ax, series in (
+                (axes[0], block["rmse"]),
+                (axes[1], block["rmse"] / block["rmse"].iloc[0]),
+            ):
                 ax.annotate(MODEL_LABEL.get(model, model),
-                            (group["lead_days"].iloc[-1], series.iloc[-1]),
+                            (block["lead_days"].iloc[-1], series.iloc[-1]),
                             textcoords="offset points", xytext=(5, -2),
                             fontsize=7, color=colour,
                             fontweight="bold" if is_ai else "normal")
@@ -285,11 +434,12 @@ def figure_ai_vs_physics() -> None:
             ax.set_xlabel("Lead time (days)")
             ax.set_xticks(sorted(growth["lead_days"].unique()))
             ax.set_xlim(0.8, 6.6)
-        axes[0].set_title("Absolute error: AIFS starts behind", fontsize=9.5)
-        axes[1].set_title("Growth: AIFS degrades the slowest", fontsize=9.5)
+        left_title, right_title = _ai_titles(growth)
+        axes[0].set_title(left_title, fontsize=9.5)
+        axes[1].set_title(right_title, fontsize=9.5)
         fig.suptitle(
-            f"ECMWF AIFS against six physics models, {label}, "
-            f"Chinese stations, 2025-03 to 2025-08",
+            f"ECMWF AIFS against the physics models, {label}, "
+            f"{GROUP_LABEL.get(group, group)}, 2025-03 to 2025-08",
             fontsize=10.5, y=1.03,
         )
         fig.tight_layout()
@@ -308,6 +458,7 @@ def main() -> None:
         figure_bias_vs_skill(china, suffix, VARIABLE_LABEL.get(variable, variable))
         figure_station_bias(china, suffix, VARIABLE_LABEL.get(variable, variable))
     figure_rank_reversal()
+    figure_rank_reversal_ai()
     figure_ai_vs_physics()
     print(f"figures written to {FIGURES}")
 

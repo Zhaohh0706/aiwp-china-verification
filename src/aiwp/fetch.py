@@ -33,6 +33,7 @@ from .stations import Station
 
 PREVIOUS_RUNS = "https://previous-runs-api.open-meteo.com/v1/forecast"
 ASOS = "https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py"
+SATELLITE = "https://satellite-api.open-meteo.com/v1/archive"
 
 CACHE = Path(__file__).resolve().parents[2] / "data" / "interim"
 
@@ -98,6 +99,28 @@ VARIABLES = {
         "reduce": "max",
         "unit": "°C",
         "label": "日最高气温",
+    },
+    # Surface solar radiation has no station observation at these sites, but it
+    # does have something better than a reanalysis: a satellite retrieval.
+    # Himawari covers East Asia, and satellite-derived irradiance is what the
+    # solar industry actually assesses resource with, so it is the truth here.
+    # The daily total is what a PV yield depends on, so hourly mean irradiance
+    # is summed over the local day to give Wh/m2.
+    "shortwave_radiation": {
+        "forecast": "shortwave_radiation",
+        "truth": "satellite",
+        "reduce": "sum",
+        # Summing hourly mean irradiance over a day gives energy, not power.
+        # Labelling the result W/m² would understate it by a factor of the
+        # number of daylight hours and put the wrong unit on every chart.
+        "unit": "Wh/m²",
+        "label": "日辐照量",
+        "min_hours": 22,
+        # JMA GSM publishes no surface radiation through this archive.  It is
+        # excluded by name rather than left in to be silently emptied by the
+        # common-sample rule, which would look like a data problem instead of a
+        # stated one.
+        "models": [m for m in NWP_MODELS + AI_MODELS if m != "jma_seamless"],
     },
     "wind_speed_10m": {
         "forecast": "wind_speed_10m",
@@ -180,7 +203,10 @@ def forecasts(
     returned = {
         u for name, u in payload.get("hourly_units", {}).items() if name != "time"
     }
-    if returned and expected_unit not in returned:
+    # W/m2 comes back spelled without the superscript; compare on a normalised
+    # form so the guard catches real unit swaps and not typography.
+    normalise = lambda u: u.replace("²", "2").replace("³", "3").strip()
+    if returned and normalise(expected_unit) not in {normalise(u) for u in returned}:
         raise RuntimeError(
             f"{station.slug}: asked for {variable} in {expected_unit}, the API "
             f"returned {sorted(returned)}. Refusing to compare across units."
@@ -228,8 +254,15 @@ def observations(
     refresh: bool = False,
     variable: str = "temperature_2m",
 ) -> pd.DataFrame:
-    """Hourly METAR observation of one variable, in SI units and local time."""
+    """Hourly observation of one variable, in SI units and local time.
+
+    Dispatches on the truth source the variable declares: METAR station reports
+    for what a station measures, satellite retrieval for irradiance, which no
+    station here measures.
+    """
     CACHE.mkdir(parents=True, exist_ok=True)
+    if VARIABLES[variable].get("truth") == "satellite":
+        return _satellite_observations(station, start, end, variable, refresh)
     field = VARIABLES[variable]["metar"]
     path = CACHE / f"obs_{variable}_{station.slug}_{start}_{end}.parquet"
     if path.exists() and not refresh:
@@ -285,6 +318,38 @@ def observations(
     return out
 
 
+def _satellite_observations(
+    station: Station, start: str, end: str, variable: str, refresh: bool
+) -> pd.DataFrame:
+    """Satellite-retrieved irradiance at a point, hourly, in local time."""
+    path = CACHE / f"obs_{variable}_{station.slug}_{start}_{end}.parquet"
+    if path.exists() and not refresh:
+        return pd.read_parquet(path)
+
+    field = VARIABLES[variable]["forecast"]
+    payload = json.loads(
+        _get(
+            SATELLITE,
+            {
+                "latitude": station.latitude,
+                "longitude": station.longitude,
+                "start_date": start,
+                "end_date": end,
+                "hourly": field,
+                "models": "satellite_radiation_seamless",
+                "timezone": station.timezone,
+            },
+        ).decode("utf-8")
+    )
+    hourly = payload["hourly"]
+    frame = pd.DataFrame({"time": pd.to_datetime(hourly["time"]), "value": hourly[field]})
+    frame = frame.dropna(subset=["value"])
+    frame["station"] = station.slug
+    frame = frame.sort_values("time")
+    frame.to_parquet(path, index=False)
+    return frame
+
+
 def daily(frame: pd.DataFrame, how: str = "max", min_hours: int = 18) -> pd.DataFrame:
     """Reduce an hourly series to one value per day, discarding thin days.
 
@@ -303,7 +368,7 @@ def daily(frame: pd.DataFrame, how: str = "max", min_hours: int = 18) -> pd.Data
 
 def daily_max(frame: pd.DataFrame, min_hours: int = 18) -> pd.DataFrame:
     """Backwards-compatible alias used by the temperature path and its tests."""
-    return daily(frame, "max", min_hours).rename(columns={"daily_value": "temp_max_c"})
+    return daily(frame, "max", min_hours).rename(columns={"daily_value": "temp_max"})
 
 
 def build_pairs(
@@ -315,12 +380,15 @@ def build_pairs(
 ) -> pd.DataFrame:
     """One row per (station, model, lead, date) with forecast and observation."""
     how = VARIABLES[variable]["reduce"]
-    fc = daily(forecasts(station, start, end, variable=variable, models=models), how)
-    obs = daily(observations(station, start, end, variable=variable), how)
-    obs = obs.rename(columns={"daily_value": "observed_c"})[["station", "date", "observed_c"]]
-    pairs = fc.rename(columns={"daily_value": "forecast_c"}).merge(
+    min_hours = VARIABLES[variable].get("min_hours", 18)
+    fc = daily(
+        forecasts(station, start, end, variable=variable, models=models), how, min_hours
+    )
+    obs = daily(observations(station, start, end, variable=variable), how, min_hours)
+    obs = obs.rename(columns={"daily_value": "observed"})[["station", "date", "observed"]]
+    pairs = fc.rename(columns={"daily_value": "forecast"}).merge(
         obs, on=["station", "date"], how="inner"
     )
-    pairs["error_c"] = pairs["forecast_c"] - pairs["observed_c"]
+    pairs["error"] = pairs["forecast"] - pairs["observed"]
     pairs["variable"] = variable
-    return pairs.dropna(subset=["forecast_c", "observed_c"])
+    return pairs.dropna(subset=["forecast", "observed"])

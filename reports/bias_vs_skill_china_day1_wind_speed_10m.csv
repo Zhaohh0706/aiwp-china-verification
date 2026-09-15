@@ -1,4 +1,4 @@
-model,bias_c,rmse_c,debiased_rmse_c,rank_raw,rank_debiased,rank_change
+model,bias,rmse,debiased_rmse,rank_raw,rank_debiased,rank_change
 cma_grapes_global,-0.15732242191764875,0.8896044990422813,0.875583131563322,1,3,-2
 gem_global,-0.3585301384451337,1.0718985257281881,1.0101596850423085,2,4,-2
 ecmwf_ifs025,-0.7587374114159348,1.088129302090877,0.7799634084921073,3,1,2

@@ -55,5 +55,24 @@ CONTROL = [
     Station("tokyo", "东京羽田", "RJTT", 35.5523, 139.7798, "Asia/Tokyo", "control"),
 ]
 
+# The eight PV stations from the power-forecasting study, at the coordinates
+# recovered there from their own irradiance records (solar noon for longitude,
+# day length for latitude, the station barometer for elevation).  They carry no
+# ICAO code because they are not airports and have no METAR; irradiance at these
+# points is verified against satellite retrieval instead.
+#
+# Verifying the weather at the same points the power model runs on is what joins
+# the two studies: an irradiance error here is the input to a yield error there.
+PV_SITES = [
+    Station("pv01", "光伏 1 号站 50 MW", "", 40.55, 96.34, "Asia/Shanghai", "pv"),
+    Station("pv02", "光伏 2 号站 130 MW", "", 37.45, 78.66, "Asia/Shanghai", "pv"),
+    Station("pv03", "光伏 3 号站 30 MW", "", 30.10, 120.49, "Asia/Shanghai", "pv"),
+    Station("pv04", "光伏 4 号站 130 MW", "", 31.00, 112.38, "Asia/Shanghai", "pv"),
+    Station("pv05", "光伏 5 号站 110 MW", "", 30.25, 114.51, "Asia/Shanghai", "pv"),
+    Station("pv06", "光伏 6 号站 35 MW", "", 20.10, 98.67, "Asia/Shanghai", "pv"),
+    Station("pv07", "光伏 7 号站 30 MW", "", 24.25, 99.94, "Asia/Shanghai", "pv"),
+    Station("pv08", "光伏 8 号站 30 MW", "", 25.00, 116.81, "Asia/Shanghai", "pv"),
+]
+
 ALL = CHINA + CONTROL
-BY_SLUG = {s.slug: s for s in ALL}
+BY_SLUG = {s.slug: s for s in ALL + PV_SITES}

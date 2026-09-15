@@ -36,13 +36,13 @@ def scores(errors: np.ndarray) -> dict:
         return {"n": 0}
     return {
         "n": int(errors.size),
-        "bias_c": float(np.mean(errors)),
-        "mae_c": float(np.mean(np.abs(errors))),
-        "rmse_c": float(np.sqrt(np.mean(errors**2))),
+        "bias": float(np.mean(errors)),
+        "mae": float(np.mean(np.abs(errors))),
+        "rmse": float(np.sqrt(np.mean(errors**2))),
         # Error left after removing a constant offset: what a calibration step
         # could not fix.
-        "debiased_rmse_c": float(np.std(errors)),
-        "p95_abs_c": float(np.percentile(np.abs(errors), 95)),
+        "debiased_rmse": float(np.std(errors)),
+        "p95_abs": float(np.percentile(np.abs(errors), 95)),
         "large_error_pct": float(100.0 * np.mean(np.abs(errors) >= LARGE_ERROR_C)),
     }
 
@@ -62,7 +62,7 @@ def scorecard(pairs: pd.DataFrame, by=("model", "lead_days")) -> pd.DataFrame:
     rows = []
     for key, group in pairs.groupby(list(by)):
         entry = dict(zip(by, key if isinstance(key, tuple) else (key,)))
-        entry.update(scores(group["error_c"].to_numpy()))
+        entry.update(scores(group["error"].to_numpy()))
         rows.append(entry)
     return pd.DataFrame(rows).sort_values(list(by)).reset_index(drop=True)
 
@@ -77,7 +77,7 @@ def paired_difference(
     """
     frame = pairs if lead is None else pairs[pairs["lead_days"] == lead]
     wide = frame.pivot_table(
-        index=["station", "date"], columns="model", values="error_c", aggfunc="first"
+        index=["station", "date"], columns="model", values="error", aggfunc="first"
     )
     if model_a not in wide or model_b not in wide:
         return {"n": 0}
@@ -96,7 +96,7 @@ def paired_difference(
         "model_b": model_b,
         "lead_days": lead,
         "n": int(difference.size),
-        "mean_diff_abs_error_c": float(difference.mean()),
+        "mean_diff_abs_error": float(difference.mean()),
         "ci_low": float(low),
         "ci_high": float(high),
         "a_is_better": bool(high < 0.0),
@@ -112,14 +112,14 @@ def rank_table(pairs: pd.DataFrame, lead: int, reference: str = "ecmwf_ifs025") 
             continue
         rows.append(paired_difference(pairs, model, reference, lead))
     frame = pd.DataFrame([r for r in rows if r.get("n")])
-    return frame.sort_values("mean_diff_abs_error_c").reset_index(drop=True)
+    return frame.sort_values("mean_diff_abs_error").reset_index(drop=True)
 
 
 def error_growth(pairs: pd.DataFrame) -> pd.DataFrame:
     """RMSE by lead, the curve every verification report opens with."""
     return (
-        pairs.groupby(["model", "lead_days"])["error_c"]
+        pairs.groupby(["model", "lead_days"])["error"]
         .apply(lambda e: float(np.sqrt(np.mean(np.square(e)))))
-        .rename("rmse_c")
+        .rename("rmse")
         .reset_index()
     )

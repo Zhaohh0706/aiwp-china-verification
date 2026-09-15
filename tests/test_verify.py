@@ -17,7 +17,7 @@ from aiwp.stations import ALL, CHINA, BY_SLUG
 
 def _pairs(rows) -> pd.DataFrame:
     return pd.DataFrame(
-        rows, columns=["station", "date", "model", "lead_days", "error_c"]
+        rows, columns=["station", "date", "model", "lead_days", "error"]
     )
 
 
@@ -30,9 +30,9 @@ def test_scores_match_hand_calculation():
     # errors 1, -1, 2, -2: bias 0, MAE 1.5, RMSE sqrt(10/4) = 1.5811
     out = verify.scores(np.array([1.0, -1.0, 2.0, -2.0]))
     assert out["n"] == 4
-    assert out["bias_c"] == pytest.approx(0.0)
-    assert out["mae_c"] == pytest.approx(1.5)
-    assert out["rmse_c"] == pytest.approx(1.5811, abs=1e-4)
+    assert out["bias"] == pytest.approx(0.0)
+    assert out["mae"] == pytest.approx(1.5)
+    assert out["rmse"] == pytest.approx(1.5811, abs=1e-4)
 
 
 def test_debiased_rmse_removes_a_constant_offset():
@@ -40,16 +40,16 @@ def test_debiased_rmse_removes_a_constant_offset():
     # once the offset is removed.
     errors = np.full(50, -2.0)
     out = verify.scores(errors)
-    assert out["rmse_c"] == pytest.approx(2.0)
-    assert out["debiased_rmse_c"] == pytest.approx(0.0, abs=1e-9)
+    assert out["rmse"] == pytest.approx(2.0)
+    assert out["debiased_rmse"] == pytest.approx(0.0, abs=1e-9)
 
 
 def test_rmse_squared_splits_into_bias_squared_plus_debiased_squared():
     rng = np.random.default_rng(0)
     errors = rng.normal(-1.2, 1.7, size=500)
     out = verify.scores(errors)
-    assert out["rmse_c"] ** 2 == pytest.approx(
-        out["bias_c"] ** 2 + out["debiased_rmse_c"] ** 2, rel=1e-9
+    assert out["rmse"] ** 2 == pytest.approx(
+        out["bias"] ** 2 + out["debiased_rmse"] ** 2, rel=1e-9
     )
 
 
@@ -94,7 +94,7 @@ def test_a_model_that_only_runs_on_easy_days_cannot_flatter_itself():
     # A second model that only produced forecasts on the two days it nailed.
     rows += [("bj", f"2025-01-{d:02d}", "cherry", 1, 0.1) for d in (1, 2)]
     raw = _pairs(rows)
-    assert verify.scores(raw[raw.model == "cherry"]["error_c"])["rmse_c"] < 0.2
+    assert verify.scores(raw[raw.model == "cherry"]["error"])["rmse"] < 0.2
 
     shared = verify.common_sample(raw)
     assert shared["date"].nunique() == 2

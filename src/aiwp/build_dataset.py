@@ -15,7 +15,7 @@ from pathlib import Path
 import pandas as pd
 
 from . import fetch
-from .stations import ALL, BY_SLUG
+from .stations import ALL, BY_SLUG, PV_SITES
 
 warnings.filterwarnings("ignore")
 
@@ -34,8 +34,9 @@ def build(
     variable: str = "temperature_2m",
     models: list[str] | None = None,
     tag: str = "",
+    station_set: list | None = None,
 ) -> pd.DataFrame:
-    stations = [BY_SLUG[s] for s in slugs] if slugs else ALL
+    stations = [BY_SLUG[s] for s in slugs] if slugs else (station_set or ALL)
     frames = []
     for station in stations:
         try:
@@ -76,6 +77,12 @@ def main() -> None:
         "--variable", default="temperature_2m", choices=sorted(fetch.VARIABLES)
     )
     parser.add_argument(
+        "--pv",
+        action="store_true",
+        help="run on the eight PV sites from the power-forecasting study "
+        "instead of the airport stations",
+    )
+    parser.add_argument(
         "--ai",
         action="store_true",
         help="AI window: adds AIFS and GraphCast, and shortens the period to the "
@@ -84,16 +91,25 @@ def main() -> None:
     args = parser.parse_args()
 
     start, end, models, tag = args.start, args.end, None, ""
+    station_set = PV_SITES if args.pv else None
+    if args.pv:
+        tag = "_pv"
+        print(f"PV sites: {len(PV_SITES)} locations from the power-forecasting study")
+    declared = fetch.VARIABLES[args.variable].get("models")
+    if declared:
+        models = declared
+        print(f"variable declares its own model list: {len(models)} models "
+              f"(excludes {', '.join(sorted(set(fetch.MODELS) - set(models)))})")
     if args.ai:
         start = fetch.AI_WINDOW_START if args.start == fetch.DEFAULT_START else args.start
         end = fetch.AI_WINDOW_END if args.end == fetch.DEFAULT_END else args.end
-        models = fetch.MODELS
-        tag = "_ai"
+        models = declared or fetch.MODELS
+        tag = f"{tag}_ai"
         print(f"AI window {start} to {end}: {len(models)} models including "
               f"{', '.join(fetch.AI_MODELS)}")
 
     print(f"variable: {args.variable} ({fetch.VARIABLES[args.variable]['label']})\n")
-    pairs = build(start, end, args.stations, args.variable, models, tag)
+    pairs = build(start, end, args.stations, args.variable, models, tag, station_set)
 
     print("\ndays contributed per model (all stations):")
     counts = pairs[pairs["lead_days"] == 1].groupby("model")["date"].count()

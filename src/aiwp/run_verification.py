@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 
 from . import verify
-from .fetch import MODEL_LABEL
+from .fetch import MODEL_LABEL, VARIABLES as VARIABLE_SPEC
 
 ROOT = Path(__file__).resolve().parents[2]
 REPORTS = ROOT / "reports"
@@ -41,6 +41,18 @@ VARIABLES = {
 AI_VARIABLES = {
     "temperature_2m": ROOT / "data" / "pairs_ai.parquet",
     "wind_speed_10m": ROOT / "data" / "pairs_wind_speed_10m_ai.parquet",
+    "shortwave_radiation": ROOT / "data" / "pairs_shortwave_radiation_pv_ai.parquet",
+}
+
+# Which set of sites each variable is verified at.  Temperature and wind are
+# scored against airport station reports; irradiance has no station instrument
+# at these places, so it is scored at the eight photovoltaic sites against a
+# satellite retrieval.  Reading the wrong group would silently return an empty
+# frame rather than an error, so the mapping is written down.
+VERIFICATION_GROUP = {
+    "temperature_2m": "china",
+    "wind_speed_10m": "china",
+    "shortwave_radiation": "pv",
 }
 
 # Six physics models with full lead coverage, plus the one AI model archived
@@ -51,6 +63,13 @@ AI_CORE_MODELS = [
     "jma_seamless", "gem_global", "cma_grapes_global",
     "ecmwf_aifs025_single",
 ]
+
+# JMA GSM publishes no surface radiation through this archive.  Leaving it in
+# the core set would let the common-sample rule empty the irradiance table and
+# make a product that does not exist look like a data fault.
+AI_CORE_BY_VARIABLE = {
+    "shortwave_radiation": [m for m in AI_CORE_MODELS if m != "jma_seamless"],
+}
 
 # Six models with the full five-day archive.
 CORE_MODELS = [
@@ -70,6 +89,14 @@ def label(frame: pd.DataFrame, column: str = "model") -> pd.DataFrame:
     return out
 
 
+#: Columns once carried a ``_c`` suffix from the days when temperature was the
+#: only variable.  Two of the three variables are no longer in degrees, so the
+#: suffix was dropped; datasets built before that still have the old names.
+LEGACY_COLUMNS = {
+    "forecast_c": "forecast", "observed_c": "observed", "error_c": "error",
+}
+
+
 def load(variable: str = "temperature_2m", ai: bool = False) -> pd.DataFrame:
     path = (AI_VARIABLES if ai else VARIABLES)[variable]
     if not path.exists():
@@ -77,7 +104,17 @@ def load(variable: str = "temperature_2m", ai: bool = False) -> pd.DataFrame:
             f"run `python -m aiwp.build_dataset --variable {variable}"
             f"{' --ai' if ai else ''}` first"
         )
-    return pd.read_parquet(path)
+    return pd.read_parquet(path).rename(columns=LEGACY_COLUMNS)
+
+
+def unit(variable: str) -> str:
+    """The unit the numbers for this variable are in.
+
+    Three variables, three units. A scorecard that prints 1418 without saying
+    Wh/m² next to it invites the reader to carry over the degrees they saw on
+    the previous table.
+    """
+    return VARIABLE_SPEC[variable]["unit"]
 
 
 def available(ai: bool = False) -> list[str]:
@@ -85,9 +122,10 @@ def available(ai: bool = False) -> list[str]:
     return [name for name, path in source.items() if path.exists()]
 
 
-def ai_sets(pairs: pd.DataFrame) -> pd.DataFrame:
-    """Common sample over the six physics models plus AIFS."""
-    return verify.common_sample(pairs[pairs["model"].isin(AI_CORE_MODELS)])
+def ai_sets(pairs: pd.DataFrame, variable: str = "temperature_2m") -> pd.DataFrame:
+    """Common sample over the physics models plus AIFS, for one variable."""
+    models = AI_CORE_BY_VARIABLE.get(variable, AI_CORE_MODELS)
+    return verify.common_sample(pairs[pairs["model"].isin(models)])
 
 
 def ai_summary() -> dict:
@@ -101,19 +139,29 @@ def ai_summary() -> dict:
     out: dict = {}
     for variable in available(ai=True):
         pairs = load(variable, ai=True)
-        china = ai_sets(pairs[pairs["group"] == "china"])
-        day1 = verify.scorecard(china[china["lead_days"] == 1]).sort_values("rmse_c")
+        group = VERIFICATION_GROUP[variable]
+        subset = pairs[pairs["group"] == group]
+        if subset.empty:
+            raise SystemExit(
+                f"{variable}: no rows in group {group!r}; the dataset holds "
+                f"{sorted(pairs['group'].unique())}"
+            )
+        scored = ai_sets(subset, variable)
+        day1 = verify.scorecard(scored[scored["lead_days"] == 1]).sort_values("rmse")
         growth = (
-            verify.error_growth(china)
-            .pivot(index="model", columns="lead_days", values="rmse_c")
+            verify.error_growth(scored)
+            .pivot(index="model", columns="lead_days", values="rmse")
         )
         growth["growth_pct"] = 100.0 * (growth[growth.columns.max()] / growth[1] - 1.0)
         out[variable] = {
-            "days": int(china["date"].nunique()),
-            "pairs_day1": int((china["lead_days"] == 1).sum()),
+            "group": group,
+            "unit": unit(variable),
+            "sites": int(scored["station"].nunique()),
+            "days": int(scored["date"].nunique()),
+            "pairs_day1": int((scored["lead_days"] == 1).sum()),
             "day1": day1.to_dict("records"),
             "growth": growth.reset_index().to_dict("records"),
-            "paired_vs_ecmwf": verify.rank_table(china, lead=1).to_dict("records"),
+            "paired_vs_ecmwf": verify.rank_table(scored, lead=1).to_dict("records"),
         }
     return out
 
@@ -132,7 +180,7 @@ def ranking_across_variables() -> pd.DataFrame:
         china = sets(pairs[pairs["group"] == "china"])["core"]
         board = (
             verify.scorecard(china[china["lead_days"] == 1])
-            .sort_values("rmse_c")
+            .sort_values("rmse")
             .reset_index(drop=True)
         )
         columns[variable] = pd.Series(board.index + 1, index=board["model"])
@@ -192,19 +240,19 @@ def main(variable: str = "temperature_2m") -> None:
 
     # Does bias explain the ranking?  Compare raw and debiased RMSE.
     day1 = china_core[china_core["lead_days"] == 1]
-    bias_effect = verify.scorecard(day1)[["model", "bias_c", "rmse_c", "debiased_rmse_c"]]
-    bias_effect["rank_raw"] = bias_effect["rmse_c"].rank().astype(int)
-    bias_effect["rank_debiased"] = bias_effect["debiased_rmse_c"].rank().astype(int)
+    bias_effect = verify.scorecard(day1)[["model", "bias", "rmse", "debiased_rmse"]]
+    bias_effect["rank_raw"] = bias_effect["rmse"].rank().astype(int)
+    bias_effect["rank_debiased"] = bias_effect["debiased_rmse"].rank().astype(int)
     bias_effect["rank_change"] = bias_effect["rank_raw"] - bias_effect["rank_debiased"]
-    bias_effect = bias_effect.sort_values("rmse_c")
+    bias_effect = bias_effect.sort_values("rmse")
     bias_effect.to_csv(REPORTS / f"bias_vs_skill_china_day1_{variable}.csv", index=False)
     results["bias_vs_skill_china_day1"] = bias_effect.to_dict("records")
 
     # Is the cold bias a China effect or a global one?
     results["mean_bias_by_group_day1"] = {
-        "china": float(day1["error_c"].mean()),
+        "china": float(day1["error"].mean()),
         "control": float(
-            control_core[control_core["lead_days"] == 1]["error_c"].mean()
+            control_core[control_core["lead_days"] == 1]["error"].mean()
         ),
     }
 
@@ -226,9 +274,9 @@ def _print(results, china_core, control_core, bias_effect, ranking) -> None:
     print("=== 中国站点，提前 1 天，六模式共同样本 ===")
     board = label(verify.scorecard(china_core[china_core["lead_days"] == 1]))
     print(
-        board[["model", "n", "bias_c", "mae_c", "rmse_c", "debiased_rmse_c", "large_error_pct"]]
+        board[["model", "n", "bias", "mae", "rmse", "debiased_rmse", "large_error_pct"]]
         .round(3)
-        .sort_values("rmse_c")
+        .sort_values("rmse")
         .to_string(index=False)
     )
 
@@ -236,7 +284,7 @@ def _print(results, china_core, control_core, bias_effect, ranking) -> None:
     ranked = ranking.copy()
     ranked["model"] = ranked["model_a"].map(lambda m: MODEL_LABEL.get(m, m))
     print(
-        ranked[["model", "n", "mean_diff_abs_error_c", "ci_low", "ci_high", "a_is_better"]]
+        ranked[["model", "n", "mean_diff_abs_error", "ci_low", "ci_high", "a_is_better"]]
         .round(3)
         .to_string(index=False)
     )
@@ -253,6 +301,61 @@ def _print(results, china_core, control_core, bias_effect, ranking) -> None:
     print(f"\n结果写入 {REPORTS}")
 
 
+AI_MODEL = "ecmwf_aifs025_single"
+
+
+def _ai_verdict(block: dict) -> str:
+    """Say where the AI model placed, from the numbers rather than from memory.
+
+    An earlier version of this function ended with a fixed sentence saying AIFS
+    does not lead at day 1 but degrades most slowly. That was true of
+    temperature, and it was printed under the irradiance table too, where AIFS
+    is second at day 1. A conclusion that does not read its own table is not a
+    conclusion.
+    """
+    board = pd.DataFrame(block["day1"]).reset_index(drop=True)
+    if AI_MODEL not in set(board["model"]):
+        return "AIFS 不在这个变量的共同样本里。"
+
+    rank = int(board.index[board["model"] == AI_MODEL][0]) + 1
+    best = float(board["rmse"].min())
+    ai_rmse = float(board.loc[board["model"] == AI_MODEL, "rmse"].iloc[0])
+    behind = 100.0 * (ai_rmse / best - 1.0)
+
+    table = pd.DataFrame(block["growth"]).set_index("model")
+    growth = table["growth_pct"]
+    growth_rank = int(growth.rank().loc[AI_MODEL])
+    unit_label = block["unit"]
+
+    # Where it lands at the far end of the archive.  A model that ties at day 1
+    # and wins at day 5 is the whole argument for AI forecasting, and a verdict
+    # that reports only the day-1 rank and the growth percentage states both
+    # halves of it without ever putting them together.
+    leads = [c for c in table.columns if isinstance(c, (int, float))]
+    last = max(leads)
+    far_rank = int(table[last].rank().loc[AI_MODEL])
+
+    place = f"提前 1 天排第 {rank}"
+    if rank == 1:
+        place += "（最好）"
+    elif behind < 2.0:
+        place += f"，与最好的只差 {behind:.1f}%（{ai_rmse - best:+.0f} {unit_label}），基本打平"
+    else:
+        place += f"，落后最好的 {behind:.1f}%"
+
+    pace = (
+        f"误差增长在 {len(growth)} 个模式里最慢"
+        if growth_rank == 1
+        else f"误差增长排第 {growth_rank}（越小越好）"
+    )
+    far = (
+        f"提前 {last} 天升到第 1（全场最好）"
+        if far_rank == 1
+        else f"提前 {last} 天排第 {far_rank}"
+    )
+    return f"AIFS {place}；{far}；{pace}。"
+
+
 def run_ai() -> None:
     summary = ai_summary()
     if not summary:
@@ -261,21 +364,29 @@ def run_ai() -> None:
         json.dumps(summary, indent=2, ensure_ascii=False, default=float), encoding="utf-8"
     )
     for variable, block in summary.items():
-        print(f"\n{'=' * 78}\nAI 窗口 — {variable}（{block['days']} 天）\n{'=' * 78}")
+        unit_label = block["unit"]
+        print(
+            f"\n{'=' * 78}\nAI 窗口 — {variable}"
+            f"（{block['days']} 天，{block['sites']} 个站点，单位 {unit_label}）\n{'=' * 78}"
+        )
         board = pd.DataFrame(block["day1"]).reset_index(drop=True)
         board.insert(0, "rank", board.index + 1)
         board["model"] = board["model"].map(lambda m: MODEL_LABEL.get(m, m))
+        # Irradiance numbers run to four figures; degrees need the decimals.
+        digits = 0 if board["rmse"].max() > 100 else 3
         print(
-            board[["rank", "model", "bias_c", "mae_c", "rmse_c", "debiased_rmse_c"]]
-            .round(3).to_string(index=False)
+            board[["rank", "model", "bias", "mae", "rmse", "debiased_rmse"]]
+            .round(digits).to_string(index=False)
         )
         growth = pd.DataFrame(block["growth"]).set_index("model")
         growth.index = [MODEL_LABEL.get(m, m) for m in growth.index]
-        print("\n误差增长（提前 1 天 -> 5 天）:")
+        print(f"\n误差增长 RMSE（提前 1 天 -> 5 天，{unit_label}）:")
         print(growth.round(2).sort_values("growth_pct").to_string())
+        print(f"\n{_ai_verdict(block)}")
+
     print(
-        "\nAIFS 在提前 1 天上并不领先，但误差增长是全场最慢的。"
-        "只报单一时效的记分牌会把这件事整个盖掉。"
+        "\n同一个 AI 模式在不同变量上的位置并不一样，"
+        "只报单一时效、单一变量的记分牌会把这件事整个盖掉。"
     )
 
 
