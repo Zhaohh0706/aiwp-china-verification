@@ -1,8 +1,9 @@
 # Verifying global weather models at Chinese stations
 
-Eight operational global models, nine Chinese airport stations, fourteen months,
-two variables, verified against station observations at a **fixed forecast
-lead** — which is the part most comparisons skip.
+Ten operational global models — eight physics-based and two machine-learned —
+nine Chinese airport stations, fourteen months, two variables, verified against
+station observations at a **fixed forecast lead**, which is the part most
+comparisons skip.
 
 The question is not which model wins a global average. It is which one is
 closest **here**, on the variable you actually care about, and how much of its
@@ -35,6 +36,57 @@ Anyone choosing a weather data provider on one headline accuracy figure is
 choosing wrong for every other use they have. For a wind-power operator in
 China, the model that the international comparisons rank near the bottom is the
 one that was closest to the anemometer.
+
+## Where the machine-learned models land
+
+ECMWF AIFS is the operational machine-learned forecast, and placing it against
+the physics models at Chinese stations is the question this repository was built
+for. It enters the archive on 2025-02-21, so it is scored on its own window —
+March to August 2025, 183 days — with the physics models restricted to exactly
+the same days.
+
+**At one day ahead AIFS does not win.** Fifth of seven on daily maximum
+temperature, sixth of seven on 10 m wind, and its deficit against ECMWF IFS is
+significant on both: +0.22 °C and +0.11 m/s of mean absolute error, bootstrap
+intervals excluding zero.
+
+**Its error grows the slowest of anything in the set.**
+
+![AIFS against six physics models](reports/figures/ai_vs_physics.png)
+
+| Model | Day 1 | Day 5 | Growth |
+|---|---|---|---|
+| **ECMWF AIFS (AI)** | 2.46 | 2.87 | **+16.9%** |
+| NOAA GFS | 2.61 | 3.15 | +20.6% |
+| ECMWF IFS | 2.07 | 2.68 | +29.0% |
+| CMA GRAPES | 2.46 | 3.23 | +31.4% |
+| JMA GSM | 2.64 | 3.47 | +31.6% |
+| ECCC GEM | 2.36 | 3.15 | +33.4% |
+| DWD ICON | **1.87** | 2.72 | +45.1% |
+
+RMSE of daily maximum temperature, °C, Chinese stations, seven-model common
+sample.
+
+The gap between AIFS and ECMWF IFS narrows from 0.39 °C at day 1 to 0.19 °C at
+day 5; against ICON, which wins day 1 outright, it narrows from 0.59 to 0.15.
+The same shape appears on wind and at the four control stations, so it belongs
+to the model and not to the region.
+
+That is the known signature of a machine-learned forecast — smoother fields,
+less sharpness at short range, and a shallower decay because there is no
+imperfect dynamical integration accumulating error. Two consequences worth
+stating plainly:
+
+- **For day-ahead work these models are not the answer here yet.** At the lead a
+  dispatch centre actually submits on, every well-ranked physics model was
+  closer.
+- **For the medium range the choice is already arguable**, and the trend points
+  one way. A verification quoted at a single lead — which is most of them —
+  hides this entirely.
+
+GraphCast is in the archive but covers 37 to 59 per cent of days depending on
+the variable, so it is reported separately rather than dropped or averaged over
+the days it happened to run.
 
 ## The two scorecards
 
@@ -147,9 +199,13 @@ Three more choices that decide whether a scorecard means anything:
 - **Hourly sampling.** Both the forecast and the observation are reduced to the
   maximum of 24 hourly values, so both miss the instantaneous peak. The
   comparison is fair; the absolute maxima are slightly low.
-- **No AI models yet.** ECMWF AIFS, Pangu, GraphCast and FuXi are the point of
-  the exercise and are not in this table. Adding them is the next step, and the
-  machinery — fixed lead, common sample, paired tests — is built for it.
+- **One AI model properly, one partially.** AIFS is scored over its full window;
+  GraphCast is patchy. Pangu and FuXi are in no archive this study can reach at
+  a fixed lead without downloading global fields, which is the next step and a
+  much heavier one.
+- **Deterministic runs only.** AIFS also publishes an ensemble, and setting one
+  deterministic member against physics-model ensembles would be a different and
+  more flattering question than the one asked here.
 
 ## Running it
 
@@ -159,7 +215,9 @@ pip install pandas pyarrow numpy scipy matplotlib pytest
 
 python -m aiwp.build_dataset                              # temperature
 python -m aiwp.build_dataset --variable wind_speed_10m    # wind
-python -m aiwp.run_verification   # both variables, plus the rank comparison
+python -m aiwp.build_dataset --ai                         # AI window, temperature
+python -m aiwp.build_dataset --ai --variable wind_speed_10m
+python -m aiwp.run_verification   # both variables, the AI window, the rank table
 python -m aiwp.make_figures
 python -m pytest tests -q         # 17 tests
 ```
@@ -171,8 +229,9 @@ python -m pytest tests -q         # 17 tests
 | Forecasts at fixed lead, 8 models, days 1–5 | [Open-Meteo previous-runs archive](https://open-meteo.com/en/docs/previous-runs-api) | CC BY 4.0, free for non-commercial use |
 | Station observations, hourly METAR | [Iowa State Mesonet ASOS archive](https://mesonet.agron.iastate.edu/request/download.phtml) | public, no account |
 
-198,333 temperature pairs and 180,518 wind pairs, 13 stations, 427 days,
-2024-07-01 to 2025-08-31. No raw data is redistributed; `build_dataset` fetches
+198,333 temperature pairs and 180,518 wind pairs over 427 days
+(2024-07-01 to 2025-08-31), plus 102,612 and 92,771 over the 184-day AI window
+(2025-03-01 to 2025-08-31). Thirteen stations. No raw data is redistributed; `build_dataset` fetches
 it.
 
 Units are checked rather than assumed. Open-Meteo returns wind in km/h unless
@@ -181,9 +240,13 @@ other as if it were m/s inflates a forecast by 3.6 or 1.9 times while producing
 a scorecard that still looks like a scorecard. The fetcher asks for m/s
 explicitly and then asserts that m/s is what came back.
 
-Models: ECMWF IFS 0.25°, NOAA GFS, DWD ICON, JMA GSM, ECCC GEM, Météo-France
-ARPEGE, UKMO, and **CMA GRAPES** — the Chinese operational global model, which
-does not appear in the published international comparisons.
+Physics models: ECMWF IFS 0.25°, NOAA GFS, DWD ICON, JMA GSM, ECCC GEM,
+Météo-France ARPEGE, UKMO, and **CMA GRAPES** — the Chinese operational global
+model, which does not appear in the published international comparisons.
+
+Machine-learned models: **ECMWF AIFS Single** and **GraphCast** (GFS-initialised).
+Both come through the same archive as the physics models, so no global fields
+are downloaded and the lead control is identical.
 
 ## Layout
 
@@ -195,7 +258,7 @@ src/aiwp/
   verify.py            scores, common sample, paired bootstrap
   build_dataset.py     fetch everything, print the coverage audit
   run_verification.py  scorecards, significance tests, cross-variable ranking
-  make_figures.py      four figures
+  make_figures.py      six figures
 tests/                 17 tests, expectations hand-computed
 reports/               scorecards, results.json, figures
 ```

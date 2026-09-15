@@ -19,6 +19,7 @@ even though hourly sampling misses the true instantaneous peak.
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import time
@@ -36,8 +37,10 @@ ASOS = "https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py"
 CACHE = Path(__file__).resolve().parents[2] / "data" / "interim"
 
 # Every deterministic global model Open-Meteo serves previous runs for, with the
-# Chinese one included because no published comparison outside CMA has it.
-MODELS = [
+# Chinese one included because no published comparison outside CMA has it, and
+# two machine-learned models because placing them against the physics-based ones
+# at Chinese stations is the question this repository exists to answer.
+NWP_MODELS = [
     "ecmwf_ifs025",
     "gfs_seamless",
     "icon_seamless",
@@ -48,6 +51,13 @@ MODELS = [
     "cma_grapes_global",
 ]
 
+AI_MODELS = [
+    "ecmwf_aifs025_single",  # ECMWF's own machine-learned model, operational
+    "gfs_graphcast025",      # DeepMind GraphCast, initialised from GFS
+]
+
+MODELS = NWP_MODELS + AI_MODELS
+
 MODEL_LABEL = {
     "ecmwf_ifs025": "ECMWF IFS",
     "gfs_seamless": "NOAA GFS",
@@ -57,11 +67,23 @@ MODEL_LABEL = {
     "meteofrance_seamless": "Météo-France ARPEGE",
     "ukmo_seamless": "UKMO",
     "cma_grapes_global": "CMA GRAPES",
+    "ecmwf_aifs025_single": "ECMWF AIFS (AI)",
+    "gfs_graphcast025": "GraphCast (AI)",
 }
+
+IS_AI = set(AI_MODELS)
 
 # The previous-runs archive begins in mid-2024.
 DEFAULT_START = "2024-07-01"
 DEFAULT_END = "2025-08-31"
+
+# AIFS only enters the archive on 2025-02-21, so the AI comparison runs on its
+# own window.  Averaging a model over the months it was present and another over
+# the months it was not is the mistake the common-sample rule exists to prevent,
+# and stretching the window to include months AIFS cannot cover would reintroduce
+# it at the level of the study design.
+AI_WINDOW_START = "2025-03-01"
+AI_WINDOW_END = "2025-08-31"
 
 LEADS = (1, 2, 3, 4, 5)
 
@@ -122,15 +144,18 @@ def forecasts(
     leads: tuple[int, ...] = LEADS,
     refresh: bool = False,
     variable: str = "temperature_2m",
+    models: list[str] | None = None,
 ) -> pd.DataFrame:
-    """Hourly 2 m temperature per model per lead, in the station's local time.
+    """Hourly values per model per lead, in the station's local time.
 
     One request per station covers every model and every lead, because the API
     returns one column per (variable, lead, model) combination.
     """
     CACHE.mkdir(parents=True, exist_ok=True)
     field = VARIABLES[variable]["forecast"]
-    path = CACHE / f"fc_{variable}_{station.slug}_{start}_{end}.parquet"
+    models = models or MODELS
+    tag = hashlib.sha1(",".join(sorted(models)).encode()).hexdigest()[:8]
+    path = CACHE / f"fc_{variable}_{station.slug}_{start}_{end}_{tag}.parquet"
     if path.exists() and not refresh:
         return pd.read_parquet(path)
 
@@ -144,7 +169,7 @@ def forecasts(
                 "start_date": start,
                 "end_date": end,
                 "hourly": ",".join(variables),
-                "models": ",".join(MODELS),
+                "models": ",".join(models),
                 "timezone": station.timezone,
                 **VARIABLES[variable].get("request", {}),
             },
@@ -286,10 +311,11 @@ def build_pairs(
     start: str = DEFAULT_START,
     end: str = DEFAULT_END,
     variable: str = "temperature_2m",
+    models: list[str] | None = None,
 ) -> pd.DataFrame:
     """One row per (station, model, lead, date) with forecast and observation."""
     how = VARIABLES[variable]["reduce"]
-    fc = daily(forecasts(station, start, end, variable=variable), how)
+    fc = daily(forecasts(station, start, end, variable=variable, models=models), how)
     obs = daily(observations(station, start, end, variable=variable), how)
     obs = obs.rename(columns={"daily_value": "observed_c"})[["station", "date", "observed_c"]]
     pairs = fc.rename(columns={"daily_value": "forecast_c"}).merge(

@@ -35,6 +35,23 @@ VARIABLES = {
     "wind_speed_10m": ROOT / "data" / "pairs_wind_speed_10m.parquet",
 }
 
+# The AI window is a separate dataset rather than a subset, because AIFS only
+# enters the archive on 2025-02-21 and the physics models must be scored on the
+# same months for the comparison to mean anything.
+AI_VARIABLES = {
+    "temperature_2m": ROOT / "data" / "pairs_ai.parquet",
+    "wind_speed_10m": ROOT / "data" / "pairs_wind_speed_10m_ai.parquet",
+}
+
+# Six physics models with full lead coverage, plus the one AI model archived
+# for the whole window.  GraphCast covers 37 to 59 per cent of days and is
+# reported separately rather than dropped or averaged over its good days.
+AI_CORE_MODELS = [
+    "ecmwf_ifs025", "icon_seamless", "gfs_seamless",
+    "jma_seamless", "gem_global", "cma_grapes_global",
+    "ecmwf_aifs025_single",
+]
+
 # Six models with the full five-day archive.
 CORE_MODELS = [
     "ecmwf_ifs025",
@@ -53,17 +70,52 @@ def label(frame: pd.DataFrame, column: str = "model") -> pd.DataFrame:
     return out
 
 
-def load(variable: str = "temperature_2m") -> pd.DataFrame:
-    path = VARIABLES[variable]
+def load(variable: str = "temperature_2m", ai: bool = False) -> pd.DataFrame:
+    path = (AI_VARIABLES if ai else VARIABLES)[variable]
     if not path.exists():
         raise SystemExit(
-            f"run `python -m aiwp.build_dataset --variable {variable}` first"
+            f"run `python -m aiwp.build_dataset --variable {variable}"
+            f"{' --ai' if ai else ''}` first"
         )
     return pd.read_parquet(path)
 
 
-def available() -> list[str]:
-    return [name for name, path in VARIABLES.items() if path.exists()]
+def available(ai: bool = False) -> list[str]:
+    source = AI_VARIABLES if ai else VARIABLES
+    return [name for name, path in source.items() if path.exists()]
+
+
+def ai_sets(pairs: pd.DataFrame) -> pd.DataFrame:
+    """Common sample over the six physics models plus AIFS."""
+    return verify.common_sample(pairs[pairs["model"].isin(AI_CORE_MODELS)])
+
+
+def ai_summary() -> dict:
+    """How AIFS places against the physics models, and how that changes with lead.
+
+    The headline is not the day-1 ranking. It is the growth rate: a model that
+    starts behind and degrades more slowly is a different product from one that
+    starts ahead and falls away, and a scorecard quoted at a single lead hides
+    exactly that.
+    """
+    out: dict = {}
+    for variable in available(ai=True):
+        pairs = load(variable, ai=True)
+        china = ai_sets(pairs[pairs["group"] == "china"])
+        day1 = verify.scorecard(china[china["lead_days"] == 1]).sort_values("rmse_c")
+        growth = (
+            verify.error_growth(china)
+            .pivot(index="model", columns="lead_days", values="rmse_c")
+        )
+        growth["growth_pct"] = 100.0 * (growth[growth.columns.max()] / growth[1] - 1.0)
+        out[variable] = {
+            "days": int(china["date"].nunique()),
+            "pairs_day1": int((china["lead_days"] == 1).sum()),
+            "day1": day1.to_dict("records"),
+            "growth": growth.reset_index().to_dict("records"),
+            "paired_vs_ecmwf": verify.rank_table(china, lead=1).to_dict("records"),
+        }
+    return out
 
 
 def ranking_across_variables() -> pd.DataFrame:
@@ -201,10 +253,38 @@ def _print(results, china_core, control_core, bias_effect, ranking) -> None:
     print(f"\n结果写入 {REPORTS}")
 
 
+def run_ai() -> None:
+    summary = ai_summary()
+    if not summary:
+        return
+    (REPORTS / "results_ai_window.json").write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False, default=float), encoding="utf-8"
+    )
+    for variable, block in summary.items():
+        print(f"\n{'=' * 78}\nAI 窗口 — {variable}（{block['days']} 天）\n{'=' * 78}")
+        board = pd.DataFrame(block["day1"]).reset_index(drop=True)
+        board.insert(0, "rank", board.index + 1)
+        board["model"] = board["model"].map(lambda m: MODEL_LABEL.get(m, m))
+        print(
+            board[["rank", "model", "bias_c", "mae_c", "rmse_c", "debiased_rmse_c"]]
+            .round(3).to_string(index=False)
+        )
+        growth = pd.DataFrame(block["growth"]).set_index("model")
+        growth.index = [MODEL_LABEL.get(m, m) for m in growth.index]
+        print("\n误差增长（提前 1 天 -> 5 天）:")
+        print(growth.round(2).sort_values("growth_pct").to_string())
+    print(
+        "\nAIFS 在提前 1 天上并不领先，但误差增长是全场最慢的。"
+        "只报单一时效的记分牌会把这件事整个盖掉。"
+    )
+
+
 def run_all() -> None:
     for variable in available():
         print(f"\n{'=' * 78}\n{variable}\n{'=' * 78}")
         main(variable)
+
+    run_ai()
 
     table = ranking_across_variables()
     if len(table.columns) > 1:

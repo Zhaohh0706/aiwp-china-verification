@@ -13,10 +13,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from .fetch import MODEL_LABEL
+from .fetch import IS_AI, MODEL_LABEL
 from .run_verification import (
     CORE_MODELS,
     REPORTS,
+    ai_sets,
     available,
     load,
     ranking_across_variables,
@@ -239,6 +240,64 @@ def figure_rank_reversal() -> None:
     plt.close(fig)
 
 
+AI_COLOUR = "#7c3aed"
+
+
+def figure_ai_vs_physics() -> None:
+    """Where a machine-learned model sits, and how that changes with lead.
+
+    Two panels because the day-1 ranking and the growth rate say different
+    things, and quoting either alone misleads. AIFS is mid-pack at day 1 and has
+    the flattest error growth in the set; a scorecard at one lead hides that
+    entirely.
+    """
+    for variable in available(ai=True):
+        pairs = load(variable, ai=True)
+        china = ai_sets(pairs[pairs["group"] == "china"])
+        growth = verify.error_growth(china)
+        day1 = growth[growth["lead_days"] == 1].set_index("model")["rmse_c"]
+        best = day1.idxmin()
+
+        fig, axes = plt.subplots(1, 2, figsize=(10.4, 3.8))
+        for model, group in growth.groupby("model"):
+            group = group.sort_values("lead_days")
+            is_ai = model in IS_AI
+            colour = AI_COLOUR if is_ai else _colour(model, best)
+            width = 2.4 if is_ai else (1.7 if colour != OTHER else 1.1)
+            axes[0].plot(group["lead_days"], group["rmse_c"], marker="o",
+                         markersize=3.5, linewidth=width, color=colour,
+                         zorder=4 if is_ai else 2)
+            # Normalised to its own day-1 value: the shape, not the level.
+            axes[1].plot(group["lead_days"], group["rmse_c"] / group["rmse_c"].iloc[0],
+                         marker="o", markersize=3.5, linewidth=width, color=colour,
+                         zorder=4 if is_ai else 2)
+            for ax, series in ((axes[0], group["rmse_c"]), (axes[1], group["rmse_c"] / group["rmse_c"].iloc[0])):
+                ax.annotate(MODEL_LABEL.get(model, model),
+                            (group["lead_days"].iloc[-1], series.iloc[-1]),
+                            textcoords="offset points", xytext=(5, -2),
+                            fontsize=7, color=colour,
+                            fontweight="bold" if is_ai else "normal")
+
+        label = VARIABLE_LABEL.get(variable, variable)
+        axes[0].set_ylabel(f"RMSE, {label}")
+        axes[1].set_ylabel("RMSE relative to its own day-1 value")
+        for ax in axes:
+            ax.set_xlabel("Lead time (days)")
+            ax.set_xticks(sorted(growth["lead_days"].unique()))
+            ax.set_xlim(0.8, 6.6)
+        axes[0].set_title("Absolute error: AIFS starts behind", fontsize=9.5)
+        axes[1].set_title("Growth: AIFS degrades the slowest", fontsize=9.5)
+        fig.suptitle(
+            f"ECMWF AIFS against six physics models, {label}, "
+            f"Chinese stations, 2025-03 to 2025-08",
+            fontsize=10.5, y=1.03,
+        )
+        fig.tight_layout()
+        suffix = "" if variable == "temperature_2m" else f"_{variable}"
+        fig.savefig(FIGURES / f"ai_vs_physics{suffix}.png", bbox_inches="tight")
+        plt.close(fig)
+
+
 def main() -> None:
     FIGURES.mkdir(parents=True, exist_ok=True)
     for variable in available():
@@ -249,6 +308,7 @@ def main() -> None:
         figure_bias_vs_skill(china, suffix, VARIABLE_LABEL.get(variable, variable))
         figure_station_bias(china, suffix, VARIABLE_LABEL.get(variable, variable))
     figure_rank_reversal()
+    figure_ai_vs_physics()
     print(f"figures written to {FIGURES}")
 
 
