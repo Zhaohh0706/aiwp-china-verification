@@ -287,18 +287,18 @@ Three more choices that decide whether a scorecard means anything:
 ## Running it
 
 ```bash
-conda create -n aiwp python=3.12 -y && conda activate aiwp
+conda create -n aiwp python=3.11 -y && conda activate aiwp
 pip install pandas pyarrow numpy scipy matplotlib pytest
+pip install -e .
 
-python -m aiwp.build_dataset                              # temperature
-python -m aiwp.build_dataset --variable wind_speed_10m    # wind
-python -m aiwp.build_dataset --ai                         # AI window, temperature
-python -m aiwp.build_dataset --ai --variable wind_speed_10m
-python -m aiwp.build_dataset --ai --variable shortwave_radiation   # PV sites
-python -m aiwp.run_verification   # every variable, the AI window, the rank tables
-python -m aiwp.make_figures
-python -m pytest tests -q         # 37 tests
+make verify figures   # every table and figure, from the pairs committed in data/
+make test             # 37 tests
+make data             # optional: rebuild the pairs from the archives (slow, quota-bound)
 ```
+
+`make data` runs `aiwp.build_dataset` once per variable and window — temperature
+and wind over the full archive, then temperature, wind and irradiance over the
+AI window — and prints a coverage audit for each.
 
 ## Data
 
@@ -311,8 +311,12 @@ python -m pytest tests -q         # 37 tests
 198,333 temperature pairs and 180,518 wind pairs over 427 days
 (2024-07-01 to 2025-08-31), plus 102,612 and 92,771 over the 184-day AI window
 (2025-03-01 to 2025-08-31), and 45,287 irradiance pairs at eight photovoltaic
-sites over the same window. Thirteen stations and eight sites. No raw data is
-redistributed; `build_dataset` fetches it.
+sites over the same window. Thirteen stations and eight sites.
+
+The derived forecast–observation pairs are committed under `data/` (about 5 MB),
+so every table and figure here reproduces without fetching anything. The raw
+archives are not redistributed; `build_dataset` rebuilds the pairs from source.
+The pairs carry the licences of what they were derived from, listed above.
 
 Units are checked rather than assumed. Open-Meteo returns wind in km/h unless
 asked otherwise and METAR reports it in knots; comparing either against the
@@ -349,3 +353,9 @@ src/aiwp/
 tests/                 37 tests, expectations hand-computed
 reports/               scorecards, results.json, figures
 ```
+
+## Related repositories
+
+- [pv-wind-power-forecast](https://github.com/Zhaohh0706/pv-wind-power-forecast) — PV and wind forecasting, priced against Chinese grid-code assessment
+- [cn-weather-cube](https://github.com/Zhaohh0706/cn-weather-cube) — point weather with units attached and sources named
+- [green-ai-ledger](https://github.com/Zhaohh0706/green-ai-ledger) — compute energy and carbon, with the grid factor pinned rather than guessed
