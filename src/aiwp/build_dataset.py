@@ -15,7 +15,7 @@ from pathlib import Path
 import pandas as pd
 
 from . import fetch
-from .stations import ALL, BY_SLUG, PV_SITES
+from .stations import ALL, BY_SLUG, ENERGY_PV, ENERGY_WIND, PV_SITES
 
 warnings.filterwarnings("ignore")
 
@@ -83,6 +83,12 @@ def main() -> None:
         "instead of the airport stations",
     )
     parser.add_argument(
+        "--energy",
+        action="store_true",
+        help="run on the energy-province sets: twelve airports in the wind "
+        "provinces for wind speed, ten PV-base points for irradiance",
+    )
+    parser.add_argument(
         "--ai",
         action="store_true",
         help="AI window: adds AIFS and GraphCast, and shortens the period to the "
@@ -95,6 +101,10 @@ def main() -> None:
     if args.pv:
         tag = "_pv"
         print(f"PV sites: {len(PV_SITES)} locations from the power-forecasting study")
+    if args.energy:
+        station_set = ENERGY_PV if args.variable == "shortwave_radiation" else ENERGY_WIND
+        tag = "_energy"
+        print(f"energy provinces: {len(station_set)} locations for {args.variable}")
     declared = fetch.VARIABLES[args.variable].get("models")
     if declared:
         models = declared

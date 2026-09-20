@@ -114,6 +114,11 @@ VARIABLES = {
         # Labelling the result W/m² would understate it by a factor of the
         # number of daylight hours and put the wrong unit on every chart.
         "unit": "Wh/m²",
+        # The archive serves hourly mean irradiance in W/m²; the daily sum is
+        # what carries Wh/m².  The unit guard has to compare against what the
+        # API returns, not against what the reduction produces - it did not, and
+        # only a warm cache kept that from showing.
+        "forecast_unit": "W/m²",
         "label": "日辐照量",
         "min_hours": 22,
         # JMA GSM publishes no surface radiation through this archive.  It is
@@ -199,9 +204,12 @@ def forecasts(
         ).decode("utf-8")
     )
 
-    expected_unit = VARIABLES[variable]["unit"]
+    expected_unit = VARIABLES[variable].get("forecast_unit", VARIABLES[variable]["unit"])
+    # A model with no data for the period comes back with the unit "undefined";
+    # that is an empty column, not a different unit.
     returned = {
-        u for name, u in payload.get("hourly_units", {}).items() if name != "time"
+        u for name, u in payload.get("hourly_units", {}).items()
+        if name != "time" and u != "undefined"
     }
     # W/m2 comes back spelled without the superscript; compare on a normalised
     # form so the guard catches real unit swaps and not typography.

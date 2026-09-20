@@ -1,0 +1,337 @@
+{
+ "wind_speed_10m": {
+  "window": [
+   "2025-03-02",
+   "2026-08-31"
+  ],
+  "stations": [
+   "changchun",
+   "dalian",
+   "harbin",
+   "hohhot",
+   "kashi",
+   "lanzhou",
+   "shenyang",
+   "shijiazhuang",
+   "taiyuan",
+   "tianjin",
+   "urumqi",
+   "zhengzhou"
+  ],
+  "coverage": {
+   "cma_grapes_global": 0.869,
+   "ecmwf_aifs025_single": 1.0,
+   "ecmwf_ifs025": 1.0,
+   "gem_global": 1.0,
+   "gfs_graphcast025": 0.248,
+   "gfs_seamless": 1.0,
+   "icon_seamless": 1.0,
+   "jma_seamless": 1.0,
+   "meteofrance_seamless": 0.044,
+   "ukmo_seamless": 0.818
+  },
+  "overall_day1": {
+   "model": "gfs_seamless",
+   "runner_up": "ukmo_seamless",
+   "tie": false,
+   "rmse": 0.9012141733378043,
+   "n": 4584
+  },
+  "monthly": {
+   "2025-03": {
+    "model": "gfs_seamless",
+    "runner_up": "cma_grapes_global",
+    "tie": true,
+    "rmse": 0.9070129992334542,
+    "n": 144
+   },
+   "2025-04": {
+    "model": "gfs_seamless",
+    "runner_up": "ukmo_seamless",
+    "tie": true,
+    "rmse": 1.016132028728313,
+    "n": 96
+   },
+   "2025-05": {
+    "model": "gfs_seamless",
+    "runner_up": "ukmo_seamless",
+    "tie": true,
+    "rmse": 1.0507586299474667,
+    "n": 276
+   },
+   "2025-06": {
+    "model": "gfs_seamless",
+    "runner_up": "ukmo_seamless",
+    "tie": true,
+    "rmse": 1.0263645084824187,
+    "n": 108
+   },
+   "2025-07": {
+    "model": "gfs_seamless",
+    "runner_up": "ukmo_seamless",
+    "tie": false,
+    "rmse": 0.8330930445061226,
+    "n": 168
+   },
+   "2025-08": {
+    "model": "ukmo_seamless",
+    "runner_up": "gfs_seamless",
+    "tie": true,
+    "rmse": 0.7280134985493135,
+    "n": 144
+   },
+   "2025-09": {
+    "model": "cma_grapes_global",
+    "runner_up": "gfs_seamless",
+    "tie": true,
+    "rmse": 0.6880215358095624,
+    "n": 84
+   },
+   "2025-10": {
+    "model": "icon_seamless",
+    "runner_up": "jma_seamless",
+    "tie": true,
+    "rmse": 0.8131860678073248,
+    "n": 72
+   },
+   "2025-11": {
+    "model": "gfs_seamless",
+    "runner_up": "ukmo_seamless",
+    "tie": true,
+    "rmse": 0.9086811089664167,
+    "n": 360
+   },
+   "2025-12": {
+    "model": "gfs_seamless",
+    "runner_up": "icon_seamless",
+    "tie": true,
+    "rmse": 0.871287589184538,
+    "n": 372
+   },
+   "2026-01": {
+    "model": "gfs_seamless",
+    "runner_up": "icon_seamless",
+    "tie": true,
+    "rmse": 0.9619448250105711,
+    "n": 252
+   },
+   "2026-02": {
+    "model": "gfs_seamless",
+    "runner_up": "ukmo_seamless",
+    "tie": true,
+    "rmse": 0.9178174116628307,
+    "n": 300
+   },
+   "2026-03": {
+    "model": "ukmo_seamless",
+    "runner_up": "gfs_seamless",
+    "tie": true,
+    "rmse": 0.8431508835387319,
+    "n": 372
+   },
+   "2026-04": {
+    "model": "ukmo_seamless",
+    "runner_up": "gfs_seamless",
+    "tie": true,
+    "rmse": 0.9573599431255875,
+    "n": 360
+   },
+   "2026-05": {
+    "model": "gfs_seamless",
+    "runner_up": "ukmo_seamless",
+    "tie": true,
+    "rmse": 0.9787811105377935,
+    "n": 372
+   },
+   "2026-06": {
+    "model": "gfs_seamless",
+    "runner_up": "ukmo_seamless",
+    "tie": false,
+    "rmse": 0.8313266889046018,
+    "n": 360
+   },
+   "2026-07": {
+    "model": "gfs_seamless",
+    "runner_up": "ukmo_seamless",
+    "tie": true,
+    "rmse": 0.8446331393812034,
+    "n": 372
+   },
+   "2026-08": {
+    "model": "gfs_seamless",
+    "runner_up": "cma_grapes_global",
+    "tie": true,
+    "rmse": 0.7643262684186946,
+    "n": 372
+   }
+  },
+  "by_station": {
+   "changchun": {
+    "model": "ecmwf_aifs025_single",
+    "runner_up": "ukmo_seamless",
+    "tie": true,
+    "rmse": 0.6586854655225499,
+    "n": 382
+   },
+   "dalian": {
+    "model": "ukmo_seamless",
+    "runner_up": "ecmwf_ifs025",
+    "tie": true,
+    "rmse": 0.9392039259339319,
+    "n": 382
+   },
+   "harbin": {
+    "model": "ecmwf_aifs025_single",
+    "runner_up": "gfs_seamless",
+    "tie": true,
+    "rmse": 0.7112462762617884,
+    "n": 382
+   },
+   "hohhot": {
+    "model": "gfs_seamless",
+    "runner_up": "cma_grapes_global",
+    "tie": true,
+    "rmse": 0.7401569880153229,
+    "n": 382
+   },
+   "kashi": {
+    "model": "gfs_seamless",
+    "runner_up": "cma_grapes_global",
+    "tie": true,
+    "rmse": 1.176391920549849,
+    "n": 382
+   },
+   "lanzhou": {
+    "model": "gfs_seamless",
+    "runner_up": "cma_grapes_global",
+    "tie": true,
+    "rmse": 0.6524333315343379,
+    "n": 382
+   },
+   "shenyang": {
+    "model": "ukmo_seamless",
+    "runner_up": "gfs_seamless",
+    "tie": true,
+    "rmse": 0.5340194362412635,
+    "n": 382
+   },
+   "shijiazhuang": {
+    "model": "icon_seamless",
+    "runner_up": "ecmwf_ifs025",
+    "tie": true,
+    "rmse": 0.5724720881814693,
+    "n": 382
+   },
+   "taiyuan": {
+    "model": "cma_grapes_global",
+    "runner_up": "gfs_seamless",
+    "tie": false,
+    "rmse": 0.9433350373361169,
+    "n": 382
+   },
+   "tianjin": {
+    "model": "ukmo_seamless",
+    "runner_up": "gfs_seamless",
+    "tie": false,
+    "rmse": 0.6089007809187119,
+    "n": 382
+   },
+   "urumqi": {
+    "model": "gem_global",
+    "runner_up": "cma_grapes_global",
+    "tie": false,
+    "rmse": 0.552928521992682,
+    "n": 382
+   },
+   "zhengzhou": {
+    "model": "ukmo_seamless",
+    "runner_up": "ecmwf_aifs025_single",
+    "tie": true,
+    "rmse": 0.7886244683490655,
+    "n": 382
+   }
+  },
+  "scorecard_day1": [
+   {
+    "model": "cma_grapes_global",
+    "n": 4584,
+    "bias": 0.2897,
+    "mae": 0.7909,
+    "rmse": 1.0164,
+    "debiased_rmse": 0.9742,
+    "p95_abs": 2.0524,
+    "large_error_pct": 0.6763
+   },
+   {
+    "model": "ecmwf_aifs025_single",
+    "n": 4584,
+    "bias": -0.4981,
+    "mae": 0.9377,
+    "rmse": 1.1982,
+    "debiased_rmse": 1.0897,
+    "p95_abs": 2.394,
+    "large_error_pct": 1.8979
+   },
+   {
+    "model": "ecmwf_ifs025",
+    "n": 4584,
+    "bias": -0.6275,
+    "mae": 0.8563,
+    "rmse": 1.0719,
+    "debiased_rmse": 0.869,
+    "p95_abs": 2.0363,
+    "large_error_pct": 0.938
+   },
+   {
+    "model": "gem_global",
+    "n": 4584,
+    "bias": -0.0679,
+    "mae": 0.8299,
+    "rmse": 1.0859,
+    "debiased_rmse": 1.0838,
+    "p95_abs": 2.1918,
+    "large_error_pct": 1.3307
+   },
+   {
+    "model": "gfs_seamless",
+    "n": 4584,
+    "bias": 0.0782,
+    "mae": 0.6835,
+    "rmse": 0.9012,
+    "debiased_rmse": 0.8978,
+    "p95_abs": 1.8361,
+    "large_error_pct": 0.6545
+   },
+   {
+    "model": "icon_seamless",
+    "n": 4584,
+    "bias": -0.7177,
+    "mae": 0.8444,
+    "rmse": 1.0851,
+    "debiased_rmse": 0.8138,
+    "p95_abs": 2.1594,
+    "large_error_pct": 1.3089
+   },
+   {
+    "model": "jma_seamless",
+    "n": 4584,
+    "bias": -0.64,
+    "mae": 0.9354,
+    "rmse": 1.1913,
+    "debiased_rmse": 1.0048,
+    "p95_abs": 2.3498,
+    "large_error_pct": 1.7016
+   },
+   {
+    "model": "ukmo_seamless",
+    "n": 4584,
+    "bias": -0.385,
+    "mae": 0.7219,
+    "rmse": 0.9387,
+    "debiased_rmse": 0.8561,
+    "p95_abs": 1.8701,
+    "large_error_pct": 0.589
+   }
+  ]
+ }
+}

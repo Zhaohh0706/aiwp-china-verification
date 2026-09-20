@@ -74,5 +74,51 @@ PV_SITES = [
     Station("pv08", "光伏 8 号站 30 MW", "", 25.00, 116.81, "Asia/Shanghai", "pv"),
 ]
 
+# Airports in the provinces that carry China's wind fleet.  The wind bases
+# themselves - Hami, Jiuquan, Xilingol, Zhangbei - have airports, but none has a
+# usable METAR record in the Iowa State archive.  Of 110 Chinese stations there,
+# 46 are listed as current, and "current" turned out not to mean hourly: Jinan
+# returned 350 reports in eighteen months, Ordos and Nantong none with a wind
+# speed.  Each candidate was therefore checked for July 2026, and these twelve
+# are the ones in the north, the north-east and the north-west that reported wind
+# in all 744 hours.  They are provincial capitals and large cities, tens to
+# hundreds of kilometres from the turbines, so the usual airport caveat applies
+# twice over.  What they give is an observed wind speed in the right provinces,
+# which nothing else free does.
+ENERGY_WIND = [
+    Station("hohhot", "呼和浩特白塔", "ZBHH", 40.8167, 111.6833, "Asia/Shanghai", "energy_wind"),
+    Station("urumqi", "乌鲁木齐地窝堡", "ZWWW", 43.9071, 87.4742, "Asia/Shanghai", "energy_wind"),
+    Station("kashi", "喀什", "ZWSH", 39.4667, 75.9833, "Asia/Shanghai", "energy_wind"),
+    Station("lanzhou", "兰州中川", "ZLLL", 36.0200, 103.7500, "Asia/Shanghai", "energy_wind"),
+    Station("changchun", "长春龙嘉", "ZYCC", 43.9900, 125.6800, "Asia/Shanghai", "energy_wind"),
+    Station("harbin", "哈尔滨太平", "ZYHB", 46.0200, 126.5800, "Asia/Shanghai", "energy_wind"),
+    Station("shenyang", "沈阳桃仙", "ZYTX", 41.8000, 123.4000, "Asia/Shanghai", "energy_wind"),
+    Station("dalian", "大连周水子", "ZYTL", 38.9000, 121.6333, "Asia/Shanghai", "energy_wind"),
+    Station("shijiazhuang", "石家庄正定", "ZBSJ", 38.2807, 114.6973, "Asia/Shanghai", "energy_wind"),
+    Station("taiyuan", "太原武宿", "ZBYN", 37.7833, 112.5500, "Asia/Shanghai", "energy_wind"),
+    Station("tianjin", "天津滨海", "ZBTJ", 39.1244, 117.3462, "Asia/Shanghai", "energy_wind"),
+    Station("zhengzhou", "郑州新郑", "ZHCC", 34.7167, 113.6500, "Asia/Shanghai", "energy_wind"),
+]
+
+# Points inside the districts where China's large PV bases are built.  These are
+# not plants and the coordinates are not any plant's: each is a round-number
+# point in a county known for its PV base, chosen so that the satellite pixel and
+# the model grid cell are the ones a plant there would use.  Irradiance has no
+# station record, so truth is the satellite retrieval, as for the eight sites
+# above; unlike those, these coordinates were chosen rather than recovered, and
+# none of them falls outside the country or between two satellite disks.
+ENERGY_PV = [
+    Station("gonghe", "青海共和（塔拉滩）", "", 36.15, 100.60, "Asia/Shanghai", "energy_pv"),
+    Station("golmud", "青海格尔木", "", 36.40, 94.90, "Asia/Shanghai", "energy_pv"),
+    Station("zhongwei", "宁夏中卫", "", 37.55, 105.05, "Asia/Shanghai", "energy_pv"),
+    Station("dunhuang", "甘肃敦煌", "", 40.10, 94.55, "Asia/Shanghai", "energy_pv"),
+    Station("hami", "新疆哈密", "", 42.95, 93.60, "Asia/Shanghai", "energy_pv"),
+    Station("dalad", "内蒙古达拉特", "", 40.35, 109.85, "Asia/Shanghai", "energy_pv"),
+    Station("zhangbei", "河北张北", "", 41.25, 114.70, "Asia/Shanghai", "energy_pv"),
+    Station("datong", "山西大同", "", 40.00, 113.45, "Asia/Shanghai", "energy_pv"),
+    Station("dongying", "山东东营", "", 37.75, 118.85, "Asia/Shanghai", "energy_pv"),
+    Station("yancheng", "江苏盐城", "", 33.55, 120.35, "Asia/Shanghai", "energy_pv"),
+]
+
 ALL = CHINA + CONTROL
-BY_SLUG = {s.slug: s for s in ALL + PV_SITES}
+BY_SLUG = {s.slug: s for s in ALL + PV_SITES + ENERGY_WIND + ENERGY_PV}
