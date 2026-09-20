@@ -138,7 +138,7 @@ def ai_summary() -> dict:
     """
     out: dict = {}
     for variable in available(ai=True):
-        pairs = load(variable, ai=True)
+        pairs = verify.out_of_sample_debias(load(variable, ai=True))
         group = VERIFICATION_GROUP[variable]
         subset = pairs[pairs["group"] == group]
         if subset.empty:
@@ -147,7 +147,9 @@ def ai_summary() -> dict:
                 f"{sorted(pairs['group'].unique())}"
             )
         scored = ai_sets(subset, variable)
-        day1 = verify.scorecard(scored[scored["lead_days"] == 1]).sort_values("rmse")
+        day1 = verify.scorecard(
+            verify.common_debiased(scored[scored["lead_days"] == 1])
+        ).sort_values("rmse")
         growth = (
             verify.error_growth(scored)
             .pivot(index="model", columns="lead_days", values="rmse")
@@ -202,7 +204,10 @@ def sets(pairs: pd.DataFrame) -> dict[str, pd.DataFrame]:
 
 def main(variable: str = "temperature_2m") -> None:
     REPORTS.mkdir(parents=True, exist_ok=True)
-    pairs = load(variable)
+    # The rolling offset is fitted before any subsetting, on the whole record: the
+    # days an operator would have had are the days that happened, not the days
+    # that survive a later common-sample filter.
+    pairs = verify.out_of_sample_debias(load(variable))
     results: dict = {"variable": variable, "dataset": {}}
 
     results["dataset"] = {
@@ -238,9 +243,14 @@ def main(variable: str = "temperature_2m") -> None:
     ranking.to_csv(REPORTS / f"paired_vs_ecmwf_china_day1_{variable}.csv", index=False)
     results["paired_vs_ecmwf_china_day1"] = ranking.to_dict("records")
 
-    # Does bias explain the ranking?  Compare raw and debiased RMSE.
+    # Does bias explain the ranking?  Compare raw RMSE with what is left after a
+    # rolling per-station offset fitted only on earlier days.
     day1 = china_core[china_core["lead_days"] == 1]
-    bias_effect = verify.scorecard(day1)[["model", "bias", "rmse", "debiased_rmse"]]
+    # Both columns on the days every model had an offset for, so that the share of
+    # error the offset removes is a ratio of two numbers about the same days.
+    bias_effect = verify.scorecard(verify.common_debiased(day1, drop=True))[
+        ["model", "bias", "rmse", "error_sd", "debiased_rmse", "n", "n_debiased"]
+    ]
     bias_effect["rank_raw"] = bias_effect["rmse"].rank().astype(int)
     bias_effect["rank_debiased"] = bias_effect["debiased_rmse"].rank().astype(int)
     bias_effect["rank_change"] = bias_effect["rank_raw"] - bias_effect["rank_debiased"]

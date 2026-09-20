@@ -35,22 +35,98 @@ def test_scores_match_hand_calculation():
     assert out["rmse"] == pytest.approx(1.5811, abs=1e-4)
 
 
-def test_debiased_rmse_removes_a_constant_offset():
+def test_error_sd_removes_this_sample_s_own_offset():
     # A model that is exactly 2 degrees cold every day: RMSE 2, nothing left
-    # once the offset is removed.
+    # once this sample's own mean is taken out.
     errors = np.full(50, -2.0)
     out = verify.scores(errors)
     assert out["rmse"] == pytest.approx(2.0)
-    assert out["debiased_rmse"] == pytest.approx(0.0, abs=1e-9)
+    assert out["error_sd"] == pytest.approx(0.0, abs=1e-9)
 
 
-def test_rmse_squared_splits_into_bias_squared_plus_debiased_squared():
+def test_rmse_squared_splits_into_bias_squared_plus_spread_squared():
     rng = np.random.default_rng(0)
     errors = rng.normal(-1.2, 1.7, size=500)
     out = verify.scores(errors)
-    assert out["rmse"] ** 2 == pytest.approx(
-        out["bias"] ** 2 + out["debiased_rmse"] ** 2, rel=1e-9
-    )
+    assert out["rmse"] ** 2 == pytest.approx(out["bias"] ** 2 + out["error_sd"] ** 2, rel=1e-9)
+
+
+def test_debiased_rmse_is_reported_only_when_the_debiased_column_is_supplied():
+    errors = np.array([1.0, -1.0, 2.0, -2.0])
+    assert "debiased_rmse" not in verify.scores(errors)
+    out = verify.scores(errors, np.array([0.5, -0.5, np.nan, -1.0]))
+    assert out["n_debiased"] == 3
+    assert out["debiased_rmse"] == pytest.approx(np.sqrt((0.25 + 0.25 + 1.0) / 3))
+
+
+# --------------------------------------------------------------------------
+# Out-of-sample debiasing
+# --------------------------------------------------------------------------
+
+
+def _series(errors, model="m", station="s", lead=1):
+    days = pd.date_range("2026-01-01", periods=len(errors), freq="D")
+    return pd.DataFrame({"model": model, "station": station, "lead_days": lead,
+                         "date": days, "error": errors})
+
+
+def test_the_offset_uses_only_earlier_days():
+    # Twenty days at -2, then one day at -2 as well. The offset for the last day
+    # is fitted on the twenty before it, so nothing should be left of it.
+    frame = verify.out_of_sample_debias(_series(np.full(21, -2.0)))
+    assert frame["debiased_error"].iloc[-1] == pytest.approx(0.0, abs=1e-12)
+    # A day that arrives before there is enough history has no estimate at all,
+    # rather than an estimate made from two days.
+    assert frame["debiased_error"].iloc[: verify.DEBIAS_MIN_HISTORY].isna().all()
+
+
+def test_a_shift_confined_to_the_future_is_not_removed_from_the_present():
+    # The bias appears only on the final day; an honest estimate cannot know it.
+    errors = np.concatenate([np.zeros(20), [5.0]])
+    frame = verify.out_of_sample_debias(_series(errors))
+    assert frame["debiased_error"].iloc[-1] == pytest.approx(5.0)
+
+
+def test_out_of_sample_debiasing_leaves_more_error_than_the_sample_s_own_mean():
+    rng = np.random.default_rng(7)
+    errors = rng.normal(-1.5, 1.0, size=200)
+    frame = verify.out_of_sample_debias(_series(errors))
+    left = frame["debiased_error"].dropna().to_numpy()
+    scored = frame.loc[frame["debiased_error"].notna(), "error"].to_numpy()
+    assert np.sqrt(np.mean(left**2)) > np.std(scored)
+
+
+def test_each_station_and_lead_gets_its_own_offset():
+    warm = _series(np.full(40, 3.0), station="a")
+    cold = _series(np.full(40, -3.0), station="b")
+    frame = verify.out_of_sample_debias(pd.concat([warm, cold], ignore_index=True))
+    left = frame.dropna(subset=["debiased_error"])
+    assert left["debiased_error"].abs().max() == pytest.approx(0.0, abs=1e-12)
+    assert set(left["station"]) == {"a", "b"}
+
+
+# --------------------------------------------------------------------------
+# Multiplicity
+# --------------------------------------------------------------------------
+
+
+def test_holm_is_stricter_than_looking_at_each_test_alone():
+    p = [0.001, 0.04, 0.2, 0.5]
+    assert sum(x <= 0.05 for x in p) == 2
+    assert verify.holm_reject(p) == [True, False, False, False]
+
+
+def test_holm_stops_at_the_first_failure_even_if_a_later_p_is_small():
+    # 0.03 would clear its own 0.05/2 step, but the step above it failed.
+    assert verify.holm_reject([0.049, 0.03]) == [False, False]
+
+
+def test_holm_keeps_the_order_of_the_input():
+    assert verify.holm_reject([0.9, 0.0001, 0.8]) == [False, True, False]
+
+
+def test_a_single_test_is_its_own_family():
+    assert verify.holm_reject([0.04]) == [True]
 
 
 def test_large_error_rate_counts_three_degree_misses():

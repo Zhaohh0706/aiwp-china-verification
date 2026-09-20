@@ -137,49 +137,57 @@ the days it happened to run.
 **Daily maximum 2 m temperature**, day-1 lead, nine Chinese stations, 3,733
 pairs on the days all six models ran:
 
-| Model | RMSE | Bias | MAE | RMSE after debiasing | Misses ≥ 3 °C |
+| Model | RMSE | Bias | MAE | After a rolling offset | Misses ≥ 3 °C |
 |---|---|---|---|---|---|
-| DWD ICON | **1.70** | −0.80 | 1.36 | 1.50 | 7.3% |
-| ECMWF IFS | 2.02 | −1.11 | 1.65 | 1.69 | 13.9% |
-| ECCC GEM | 2.16 | −0.97 | 1.70 | 1.93 | 16.9% |
-| NOAA GFS | 2.32 | −0.69 | 1.83 | 2.21 | 19.7% |
-| CMA GRAPES | 2.49 | −1.45 | 2.02 | 2.02 | 23.7% |
-| JMA GSM | 2.56 | −1.58 | 2.04 | 2.01 | 23.6% |
+| DWD ICON | **1.70** | −0.80 | 1.36 | **1.43** | 7.3% |
+| ECMWF IFS | 2.02 | −1.11 | 1.65 | 1.54 | 13.9% |
+| ECCC GEM | 2.16 | −0.97 | 1.70 | 1.74 | 16.9% |
+| NOAA GFS | 2.32 | −0.69 | 1.83 | 1.73 | 19.7% |
+| CMA GRAPES | 2.49 | −1.45 | 2.02 | 1.82 | 23.7% |
+| JMA GSM | 2.56 | −1.58 | 2.04 | 1.83 | 23.6% |
 
 **Daily mean 10 m wind speed**, same stations, same days, metres per second:
 
-| Model | RMSE | Bias | MAE | RMSE after debiasing |
+| Model | RMSE | Bias | MAE | After a rolling offset |
 |---|---|---|---|---|
-| CMA GRAPES | **0.89** | −0.16 | 0.65 | 0.88 |
-| ECCC GEM | 1.07 | −0.36 | 0.83 | 1.01 |
-| ECMWF IFS | 1.09 | −0.76 | 0.88 | **0.78** |
-| NOAA GFS | 1.11 | −0.32 | 0.83 | 1.06 |
-| JMA GSM | 1.23 | −0.67 | 1.00 | 1.03 |
-| DWD ICON | 1.54 | −1.27 | 1.29 | 0.86 |
+| CMA GRAPES | **0.89** | −0.16 | 0.65 | 0.82 |
+| ECCC GEM | 1.07 | −0.36 | 0.83 | 0.80 |
+| ECMWF IFS | 1.09 | −0.76 | 0.88 | **0.70** |
+| NOAA GFS | 1.11 | −0.32 | 0.83 | 0.81 |
+| JMA GSM | 1.23 | −0.67 | 1.00 | 0.80 |
+| DWD ICON | 1.54 | −1.27 | 1.29 | 0.73 |
 
-Note the last column. ECMWF and ICON have the *smallest* wind error once their
-offsets are removed, and the *largest* offsets. Their wind problem is
-calibration; CMA GRAPES's is not, because it barely has one.
+The last column is what is left after a thirty-day offset fitted per station on
+earlier days only, on the 3,598 pairs where every model had one; the other
+columns use all 3,733. Note how much it changes. ECMWF and ICON have the
+*smallest* wind error once their offsets are removed and the *largest* offsets —
+their wind problem is calibration. CMA GRAPES, first on raw error, is last but
+one corrected, because it barely had an offset to remove. The whole table
+collapses from a 0.89-to-1.54 spread into 0.70-to-0.82: at day 1, ranking these
+models on raw wind error is close to ranking their calibration.
 
 ![Error growth with lead time](reports/figures/lead_growth_wind_speed_10m.png)
 
 **Daily solar irradiation**, eight photovoltaic sites, day-1 lead, 7,740 pairs
 over the 173 days all six models ran, Wh/m² against a satellite retrieval:
 
-| Model | RMSE | % of daily total | Bias | MAE | RMSE after debiasing |
+| Model | RMSE | % of daily total | Bias | MAE | After a rolling offset |
 |---|---|---|---|---|---|
-| DWD ICON | **999** | 18.3% | −231 | **788** | **972** |
-| ECMWF AIFS (AI) | 1,000 | 18.3% | −174 | 799 | 985 |
-| ECCC GEM | 1,115 | 20.4% | +92 | 834 | 1,111 |
-| ECMWF IFS | 1,254 | 23.0% | −204 | 1,027 | 1,237 |
-| NOAA GFS | 1,270 | 23.3% | +115 | 940 | 1,264 |
-| CMA GRAPES | 1,402 | 25.7% | +51 | 1,120 | 1,401 |
+| DWD ICON | **999** | 18.3% | −231 | **788** | 972 |
+| ECMWF AIFS (AI) | 1,000 | 18.3% | −174 | 799 | **941** |
+| ECCC GEM | 1,115 | 20.4% | +92 | 834 | 1,119 |
+| ECMWF IFS | 1,254 | 23.0% | −204 | 1,027 | 1,063 |
+| NOAA GFS | 1,270 | 23.3% | +115 | 940 | 1,274 |
+| CMA GRAPES | 1,402 | 25.7% | +51 | 1,120 | 1,280 |
 
-Unlike temperature, irradiation bias is small and signed both ways, and
-debiasing changes almost nothing: the last column is within 3% of the first for
-every model. There is no constant offset to remove here. The error is
-day-to-day cloud, which is the hard part and the reason a solar forecast is
-harder than a temperature forecast.
+Unlike temperature, irradiation bias is small relative to the error and signed
+both ways, and the offset buys much less: 5% for ICON against 29% of ICON's mean
+squared temperature error, and for GEM and GFS, whose bias is a rounding error
+against a 1,100 Wh/m² RMSE, it buys nothing at all — estimating an offset that is
+not there only adds the noise of estimating it. What is left is day-to-day cloud,
+which is the hard part and the reason a solar forecast is harder than a
+temperature forecast. The last column is on the 1,170 pairs where every model had
+an offset; the others use all 1,290.
 
 ## What else it found
 
@@ -197,20 +205,29 @@ the cube of wind speed near the middle of the power curve, so ICON's 1.27 m/s
 deficit on a 3.5 m/s mean is not a 36% error in the input, it is most of the
 output.
 
-**A small bias is not the same as a good model.** Squared bias accounts for 38%
-of JMA's mean squared error, 34% of CMA GRAPES's and 30% of ECMWF's, but only 9%
-of GFS's. Remove each model's constant offset and the middle of the table
-reshuffles: GFS drops from fourth to sixth, JMA climbs from sixth to fourth.
-GFS looked respectable because its bias was small, not because its day-to-day
-errors were.
+**A small bias is not the same as a good model, and a small bias is not the same
+as nothing to correct.** Fit each model a rolling thirty-day offset per station,
+on days that had already happened, and it removes 49% of JMA's mean squared
+error, 48% of CMA GRAPES's, 44% of GFS's, 40% of ECMWF's, 34% of GEM's and 29% of
+ICON's. The middle of the table reshuffles: GFS climbs from fourth to third, GEM
+drops from third to fourth.
+
+GFS is the instructive one. Its mean bias, −0.69 °C, is the smallest in the set,
+and taking that single constant out of the whole sample would have bought it
+almost nothing — 2.32 down to 2.21. A per-station offset takes it to 1.73. Its
+biases are large and differ by station, and they cancel in the national average.
+One number for the country hides that; one number per station finds it.
 
 ![Bias versus skill](reports/figures/bias_vs_skill.png)
 
-**CMA GRAPES is fifth of six, and a third of that is a fixable offset.** It
-carries the second-largest cold bias in the set. On the wider eight-model
-comparison at leads 1 to 3 it moves up two places once debiased. Anyone using it
-operationally in China should fit a per-station offset before anything else; on
-this sample that single number removes about a third of its mean squared error.
+**CMA GRAPES is fifth of six, and half of that is a fixable offset.** It carries
+the second-largest cold bias in the set, and the rolling offset removes 48% of its
+mean squared error — the largest share of any model here bar JMA. It does not
+change its place: every model improves, so the correction that rescues GRAPES's
+numbers rescues everyone else's too, and on the wider eight-model set it stays
+seventh of eight before and after. Anyone using it operationally in China should
+still fit a per-station offset before anything else. That is worth doing for its
+own sake, not because it would buy a better model.
 
 ![Bias by station](reports/figures/station_bias.png)
 
@@ -228,24 +245,54 @@ and north-west for 10 m wind against METAR, and ten points inside PV-base
 counties — Gonghe, Golmud, Zhongwei, Dunhuang, Hami, Dalad, Zhangbei, Datong,
 Dongying, Yancheng — for daily irradiation against satellite retrieval.
 
+> **Corrected on 2026-09-21.** Two numbers in this section were computed in ways
+> that flattered them, and both have been recomputed. The column headed "with the
+> constant offset removed" took each model's mean error out of the very sample it
+> was then scored on, which no correction can achieve because it needs the bias
+> before the day arrives; it is now fitted on the previous thirty days only, and
+> the ranking it produces is different. And each per-station and per-month winner
+> was judged on its own interval, so the page made a dozen or more judgements and
+> called each of them 95%; they are now also reported after a Holm correction over
+> the table a reader sees at once, and most of them do not survive it. The
+> sentence "nobody running plants in several provinces can buy one model" rested
+> on the uncorrected count and has been rewritten. Earlier wording is in the commit
+> history.
+
 **Wind, March 2025 to August 2026, 4,584 station-days.** NOAA GFS is first at
 day 1 (0.90 m/s) and its lead over UKMO is significant; CMA GRAPES, first at the
 nine national airports, is third here, and ECMWF AIFS is last. Change the stations
-and the ranking changes, which is the finding of this repository once more. With
-each model's constant offset removed the order changes again: DWD ICON goes from
-fifth to first (0.81), because its problem is a 0.72 m/s under-forecast and not
-its day-to-day skill. Month by month GFS takes first place in 13 of 18 months but
-only two of those leads are distinguishable from the runner-up. Station by
-station there are six different winners across twelve airports, three of them
-significant. Nobody running plants in several provinces can buy one model.
+and the ranking changes, which is the finding of this repository once more.
+
+Almost all of that ranking is constant bias. Fit each model a rolling thirty-day
+offset per station — using only days that had already happened, which is what an
+operator would have to do — and the order inverts: ECMWF IFS first at 0.67 m/s,
+UKMO 0.68, ECMWF AIFS 0.69, DWD ICON 0.71, and GFS, first on raw error, last of
+those five at 0.74. AIFS is worst of all raw and third once corrected, because a
+0.50 m/s under-forecast is most of what was wrong with it. A raw leaderboard
+mostly ranks calibration, and calibration is the cheap part.
+
+The claims this page can carry about a single station or a single month are
+weaker than its tables first suggest. GFS takes first place in 13 of 18 months,
+but only two of those leads are distinguishable from the runner-up on their own,
+and none survives a correction across the eighteen. Twelve stations produce six
+different winners; three of the twelve leads stand on their own and two after
+correction — Taiyuan and Ürümqi. So this set does not show that a fleet spread
+over several provinces needs a different model at each site. At ten of the twelve
+stations the present sample cannot tell the best model from the second best at
+all, and the argument for choosing per region rests on the aggregate reversal
+instead: CMA GRAPES leads at the nine national airports and is third here, while
+GFS leads here.
 
 **Irradiation, late May to August 2026, 857 station-days.** ECMWF AIFS (957
 Wh/m²) and ECMWF IFS (967) are level at day 1, with Météo-France ARPEGE third and
-CMA GRAPES last. AIFS carries a −446 Wh/m² bias and would lead clearly with it
-removed; IFS carries none. AIFS also grows slowest with lead, +50% from day 1 to
-day 5 against +73 to +75% for IFS and ICON, which is what the 2025 window showed
-at the anonymised sites. Four of the ten points go to AIFS and four to ARPEGE, one
-each to IFS and ICON, and only one of those ten leads is significant.
+CMA GRAPES last. The rolling offset separates them: AIFS carries a −446 Wh/m²
+bias and falls to 858 once it is removed, while IFS, which carries almost none
+(−34), rises to 983 — correcting a model that has nothing to correct only adds
+the noise of estimating the offset. AIFS also grows slowest with lead, +50% from
+day 1 to day 5 against +73 to +75% for IFS and ICON, which is what the 2025 window
+showed at the anonymised sites. Four of the ten points go to AIFS and four to
+ARPEGE, one each to IFS and ICON; one of those ten leads stands on its own and
+none survives the correction across the ten.
 
 Building this set found three things wrong with the inputs rather than the models.
 

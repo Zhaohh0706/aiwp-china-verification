@@ -34,6 +34,7 @@
    "model": "gfs_seamless",
    "runner_up": "ukmo_seamless",
    "tie": false,
+   "p": 0.0009995002498750624,
    "rmse": 0.9012141733378043,
    "n": 4584
   },
@@ -43,127 +44,163 @@
     "model": "gfs_seamless",
     "runner_up": "cma_grapes_global",
     "tie": true,
+    "p": 0.912543728135932,
     "rmse": 0.9070129992334542,
-    "n": 144
+    "n": 144,
+    "holm": false
    },
    "2025-04": {
     "model": "gfs_seamless",
     "runner_up": "ukmo_seamless",
     "tie": true,
+    "p": 0.3448275862068966,
     "rmse": 1.016132028728313,
-    "n": 96
+    "n": 96,
+    "holm": false
    },
    "2025-05": {
     "model": "gfs_seamless",
     "runner_up": "ukmo_seamless",
     "tie": true,
+    "p": 0.3758120939530235,
     "rmse": 1.0507586299474667,
-    "n": 276
+    "n": 276,
+    "holm": false
    },
    "2025-06": {
     "model": "gfs_seamless",
     "runner_up": "ukmo_seamless",
     "tie": true,
+    "p": 0.88055972013993,
     "rmse": 1.0263645084824187,
-    "n": 108
+    "n": 108,
+    "holm": false
    },
    "2025-07": {
     "model": "gfs_seamless",
     "runner_up": "ukmo_seamless",
     "tie": false,
+    "p": 0.0079960019990005,
     "rmse": 0.8330930445061226,
-    "n": 168
+    "n": 168,
+    "holm": false
    },
    "2025-08": {
     "model": "ukmo_seamless",
     "runner_up": "gfs_seamless",
     "tie": true,
+    "p": 0.8445777111444278,
     "rmse": 0.7280134985493135,
-    "n": 144
+    "n": 144,
+    "holm": false
    },
    "2025-09": {
     "model": "cma_grapes_global",
     "runner_up": "gfs_seamless",
     "tie": true,
+    "p": 0.847576211894053,
     "rmse": 0.6880215358095624,
-    "n": 84
+    "n": 84,
+    "holm": false
    },
    "2025-10": {
     "model": "icon_seamless",
     "runner_up": "jma_seamless",
     "tie": true,
+    "p": 0.9545227386306847,
     "rmse": 0.8131860678073248,
-    "n": 72
+    "n": 72,
+    "holm": false
    },
    "2025-11": {
     "model": "gfs_seamless",
     "runner_up": "ukmo_seamless",
     "tie": true,
+    "p": 0.2908545727136432,
     "rmse": 0.9086811089664167,
-    "n": 360
+    "n": 360,
+    "holm": false
    },
    "2025-12": {
     "model": "gfs_seamless",
     "runner_up": "icon_seamless",
     "tie": true,
+    "p": 0.17491254372813594,
     "rmse": 0.871287589184538,
-    "n": 372
+    "n": 372,
+    "holm": false
    },
    "2026-01": {
     "model": "gfs_seamless",
     "runner_up": "icon_seamless",
     "tie": true,
+    "p": 0.5377311344327836,
     "rmse": 0.9619448250105711,
-    "n": 252
+    "n": 252,
+    "holm": false
    },
    "2026-02": {
     "model": "gfs_seamless",
     "runner_up": "ukmo_seamless",
     "tie": true,
+    "p": 0.9105447276361819,
     "rmse": 0.9178174116628307,
-    "n": 300
+    "n": 300,
+    "holm": false
    },
    "2026-03": {
     "model": "ukmo_seamless",
     "runner_up": "gfs_seamless",
     "tie": true,
+    "p": 0.6826586706646677,
     "rmse": 0.8431508835387319,
-    "n": 372
+    "n": 372,
+    "holm": false
    },
    "2026-04": {
     "model": "ukmo_seamless",
     "runner_up": "gfs_seamless",
     "tie": true,
+    "p": 0.6756621689155422,
     "rmse": 0.9573599431255875,
-    "n": 360
+    "n": 360,
+    "holm": false
    },
    "2026-05": {
     "model": "gfs_seamless",
     "runner_up": "ukmo_seamless",
     "tie": true,
+    "p": 0.5317341329335332,
     "rmse": 0.9787811105377935,
-    "n": 372
+    "n": 372,
+    "holm": false
    },
    "2026-06": {
     "model": "gfs_seamless",
     "runner_up": "ukmo_seamless",
     "tie": false,
+    "p": 0.03498250874562719,
     "rmse": 0.8313266889046018,
-    "n": 360
+    "n": 360,
+    "holm": false
    },
    "2026-07": {
     "model": "gfs_seamless",
     "runner_up": "ukmo_seamless",
     "tie": true,
+    "p": 0.24587706146926536,
     "rmse": 0.8446331393812034,
-    "n": 372
+    "n": 372,
+    "holm": false
    },
    "2026-08": {
     "model": "gfs_seamless",
     "runner_up": "cma_grapes_global",
     "tie": true,
+    "p": 0.24287856071964017,
     "rmse": 0.7643262684186946,
-    "n": 372
+    "n": 372,
+    "holm": false
    }
   },
   "by_station": {
@@ -171,85 +208,109 @@
     "model": "ecmwf_aifs025_single",
     "runner_up": "ukmo_seamless",
     "tie": true,
+    "p": 0.1199400299850075,
     "rmse": 0.6586854655225499,
-    "n": 382
+    "n": 382,
+    "holm": false
    },
    "dalian": {
     "model": "ukmo_seamless",
     "runner_up": "ecmwf_ifs025",
     "tie": true,
+    "p": 0.384807596201899,
     "rmse": 0.9392039259339319,
-    "n": 382
+    "n": 382,
+    "holm": false
    },
    "harbin": {
     "model": "ecmwf_aifs025_single",
     "runner_up": "gfs_seamless",
     "tie": true,
+    "p": 0.3798100949525237,
     "rmse": 0.7112462762617884,
-    "n": 382
+    "n": 382,
+    "holm": false
    },
    "hohhot": {
     "model": "gfs_seamless",
     "runner_up": "cma_grapes_global",
     "tie": true,
+    "p": 0.6996501749125438,
     "rmse": 0.7401569880153229,
-    "n": 382
+    "n": 382,
+    "holm": false
    },
    "kashi": {
     "model": "gfs_seamless",
     "runner_up": "cma_grapes_global",
     "tie": true,
+    "p": 0.10094952523738131,
     "rmse": 1.176391920549849,
-    "n": 382
+    "n": 382,
+    "holm": false
    },
    "lanzhou": {
     "model": "gfs_seamless",
     "runner_up": "cma_grapes_global",
     "tie": true,
+    "p": 0.8535732133933034,
     "rmse": 0.6524333315343379,
-    "n": 382
+    "n": 382,
+    "holm": false
    },
    "shenyang": {
     "model": "ukmo_seamless",
     "runner_up": "gfs_seamless",
     "tie": true,
+    "p": 0.16591704147926037,
     "rmse": 0.5340194362412635,
-    "n": 382
+    "n": 382,
+    "holm": false
    },
    "shijiazhuang": {
     "model": "icon_seamless",
     "runner_up": "ecmwf_ifs025",
     "tie": true,
+    "p": 0.27586206896551724,
     "rmse": 0.5724720881814693,
-    "n": 382
+    "n": 382,
+    "holm": false
    },
    "taiyuan": {
     "model": "cma_grapes_global",
     "runner_up": "gfs_seamless",
     "tie": false,
+    "p": 0.0009995002498750624,
     "rmse": 0.9433350373361169,
-    "n": 382
+    "n": 382,
+    "holm": true
    },
    "tianjin": {
     "model": "ukmo_seamless",
     "runner_up": "gfs_seamless",
     "tie": false,
+    "p": 0.03698150924537731,
     "rmse": 0.6089007809187119,
-    "n": 382
+    "n": 382,
+    "holm": false
    },
    "urumqi": {
     "model": "gem_global",
     "runner_up": "cma_grapes_global",
     "tie": false,
+    "p": 0.0009995002498750624,
     "rmse": 0.552928521992682,
-    "n": 382
+    "n": 382,
+    "holm": true
    },
    "zhengzhou": {
     "model": "ukmo_seamless",
     "runner_up": "ecmwf_aifs025_single",
     "tie": true,
+    "p": 0.12993503248375812,
     "rmse": 0.7886244683490655,
-    "n": 382
+    "n": 382,
+    "holm": false
    }
   },
   "scorecard_day1": [
@@ -259,9 +320,11 @@
     "bias": 0.0782,
     "mae": 0.6835,
     "rmse": 0.9012,
-    "debiased_rmse": 0.8978,
+    "error_sd": 0.8978,
     "p95_abs": 1.8361,
-    "large_error_pct": 0.6545
+    "large_error_pct": 0.6545,
+    "debiased_rmse": 0.7416,
+    "n_debiased": 4404
    },
    {
     "model": "ukmo_seamless",
@@ -269,9 +332,11 @@
     "bias": -0.385,
     "mae": 0.7219,
     "rmse": 0.9387,
-    "debiased_rmse": 0.8561,
+    "error_sd": 0.8561,
     "p95_abs": 1.8701,
-    "large_error_pct": 0.589
+    "large_error_pct": 0.589,
+    "debiased_rmse": 0.679,
+    "n_debiased": 4404
    },
    {
     "model": "cma_grapes_global",
@@ -279,9 +344,11 @@
     "bias": 0.2897,
     "mae": 0.7909,
     "rmse": 1.0164,
-    "debiased_rmse": 0.9742,
+    "error_sd": 0.9742,
     "p95_abs": 2.0524,
-    "large_error_pct": 0.6763
+    "large_error_pct": 0.6763,
+    "debiased_rmse": 0.8055,
+    "n_debiased": 4404
    },
    {
     "model": "ecmwf_ifs025",
@@ -289,9 +356,11 @@
     "bias": -0.6275,
     "mae": 0.8563,
     "rmse": 1.0719,
-    "debiased_rmse": 0.869,
+    "error_sd": 0.869,
     "p95_abs": 2.0363,
-    "large_error_pct": 0.938
+    "large_error_pct": 0.938,
+    "debiased_rmse": 0.6734,
+    "n_debiased": 4404
    },
    {
     "model": "icon_seamless",
@@ -299,9 +368,11 @@
     "bias": -0.7177,
     "mae": 0.8444,
     "rmse": 1.0851,
-    "debiased_rmse": 0.8138,
+    "error_sd": 0.8138,
     "p95_abs": 2.1594,
-    "large_error_pct": 1.3089
+    "large_error_pct": 1.3089,
+    "debiased_rmse": 0.7069,
+    "n_debiased": 4404
    },
    {
     "model": "gem_global",
@@ -309,9 +380,11 @@
     "bias": -0.0679,
     "mae": 0.8299,
     "rmse": 1.0859,
-    "debiased_rmse": 1.0838,
+    "error_sd": 1.0838,
     "p95_abs": 2.1918,
-    "large_error_pct": 1.3307
+    "large_error_pct": 1.3307,
+    "debiased_rmse": 0.7841,
+    "n_debiased": 4404
    },
    {
     "model": "jma_seamless",
@@ -319,9 +392,11 @@
     "bias": -0.64,
     "mae": 0.9354,
     "rmse": 1.1913,
-    "debiased_rmse": 1.0048,
+    "error_sd": 1.0048,
     "p95_abs": 2.3498,
-    "large_error_pct": 1.7016
+    "large_error_pct": 1.7016,
+    "debiased_rmse": 0.7899,
+    "n_debiased": 4404
    },
    {
     "model": "ecmwf_aifs025_single",
@@ -329,9 +404,11 @@
     "bias": -0.4981,
     "mae": 0.9377,
     "rmse": 1.1982,
-    "debiased_rmse": 1.0897,
+    "error_sd": 1.0897,
     "p95_abs": 2.394,
-    "large_error_pct": 1.8979
+    "large_error_pct": 1.8979,
+    "debiased_rmse": 0.6898,
+    "n_debiased": 4404
    }
   ],
   "growth": {
@@ -395,6 +472,7 @@
    "model": "ecmwf_aifs025_single",
    "runner_up": "ecmwf_ifs025",
    "tie": true,
+   "p": 0.005997001499250375,
    "rmse": 957.144620797986,
    "n": 857
   },
@@ -429,29 +507,37 @@
     "model": "ecmwf_ifs025",
     "runner_up": "meteofrance_seamless",
     "tie": false,
+    "p": 0.015992003998001,
     "rmse": 880.9586938670847,
-    "n": 100
+    "n": 100,
+    "holm": false
    },
    "2026-06": {
     "model": "meteofrance_seamless",
     "runner_up": "ecmwf_ifs025",
     "tie": true,
+    "p": 0.9515242378810594,
     "rmse": 1026.32043594756,
-    "n": 156
+    "n": 156,
+    "holm": false
    },
    "2026-07": {
     "model": "ecmwf_aifs025_single",
     "runner_up": "ecmwf_ifs025",
     "tie": true,
+    "p": 0.13893053473263367,
     "rmse": 965.3336872241478,
-    "n": 303
+    "n": 303,
+    "holm": false
    },
    "2026-08": {
     "model": "ecmwf_aifs025_single",
     "runner_up": "meteofrance_seamless",
     "tie": true,
+    "p": 0.053973013493253376,
     "rmse": 859.5088680529975,
-    "n": 298
+    "n": 298,
+    "holm": false
    }
   },
   "by_station": {
@@ -459,71 +545,91 @@
     "model": "meteofrance_seamless",
     "runner_up": "ecmwf_ifs025",
     "tie": true,
+    "p": 0.9215392303848076,
     "rmse": 1026.272088225032,
-    "n": 86
+    "n": 86,
+    "holm": false
    },
    "datong": {
     "model": "meteofrance_seamless",
     "runner_up": "ecmwf_ifs025",
     "tie": true,
+    "p": 0.1729135432283858,
     "rmse": 925.0163354308687,
-    "n": 86
+    "n": 86,
+    "holm": false
    },
    "dongying": {
     "model": "ecmwf_aifs025_single",
     "runner_up": "gfs_seamless",
     "tie": true,
+    "p": 0.9075462268865567,
     "rmse": 988.2929328001528,
-    "n": 88
+    "n": 88,
+    "holm": false
    },
    "dunhuang": {
     "model": "icon_seamless",
     "runner_up": "ukmo_seamless",
     "tie": true,
+    "p": 0.1839080459770115,
     "rmse": 903.9023818472273,
-    "n": 88
+    "n": 88,
+    "holm": false
    },
    "golmud": {
     "model": "ecmwf_aifs025_single",
     "runner_up": "meteofrance_seamless",
     "tie": true,
+    "p": 0.4387806096951524,
     "rmse": 725.6810396886749,
-    "n": 88
+    "n": 88,
+    "holm": false
    },
    "gonghe": {
     "model": "ecmwf_aifs025_single",
     "runner_up": "ecmwf_ifs025",
     "tie": true,
+    "p": 0.37381309345327335,
     "rmse": 919.3149762730944,
-    "n": 75
+    "n": 75,
+    "holm": false
    },
    "hami": {
     "model": "meteofrance_seamless",
     "runner_up": "ecmwf_aifs025_single",
     "tie": false,
+    "p": 0.0079960019990005,
     "rmse": 745.8089374205458,
-    "n": 88
+    "n": 88,
+    "holm": false
    },
    "yancheng": {
     "model": "ecmwf_aifs025_single",
     "runner_up": "ecmwf_ifs025",
     "tie": true,
+    "p": 0.4287856071964018,
     "rmse": 924.7203052686743,
-    "n": 84
+    "n": 84,
+    "holm": false
    },
    "zhangbei": {
     "model": "ecmwf_ifs025",
     "runner_up": "ecmwf_aifs025_single",
     "tie": true,
+    "p": 0.095952023988006,
     "rmse": 850.1146800203173,
-    "n": 86
+    "n": 86,
+    "holm": false
    },
    "zhongwei": {
     "model": "meteofrance_seamless",
     "runner_up": "ecmwf_ifs025",
     "tie": true,
+    "p": 0.18790604697651175,
     "rmse": 896.716321186259,
-    "n": 88
+    "n": 88,
+    "holm": false
    }
   },
   "scorecard_day1": [
@@ -533,9 +639,11 @@
     "bias": -446.1301,
     "mae": 820.384,
     "rmse": 957.1446,
-    "debiased_rmse": 846.8139,
+    "error_sd": 846.8139,
     "p95_abs": 1645.84,
-    "large_error_pct": 99.7666
+    "large_error_pct": 99.7666,
+    "debiased_rmse": 857.9691,
+    "n_debiased": 717
    },
    {
     "model": "ecmwf_ifs025",
@@ -543,9 +651,11 @@
     "bias": -34.0193,
     "mae": 764.8407,
     "rmse": 967.2062,
-    "debiased_rmse": 966.6077,
+    "error_sd": 966.6077,
     "p95_abs": 1985.36,
-    "large_error_pct": 100.0
+    "large_error_pct": 100.0,
+    "debiased_rmse": 982.5283,
+    "n_debiased": 717
    },
    {
     "model": "meteofrance_seamless",
@@ -553,9 +663,11 @@
     "bias": -251.4733,
     "mae": 782.2028,
     "rmse": 1019.9429,
-    "debiased_rmse": 988.4557,
+    "error_sd": 988.4557,
     "p95_abs": 1955.84,
-    "large_error_pct": 99.7666
+    "large_error_pct": 99.7666,
+    "debiased_rmse": 1008.1853,
+    "n_debiased": 717
    },
    {
     "model": "icon_seamless",
@@ -563,9 +675,11 @@
     "bias": -456.6634,
     "mae": 877.5847,
     "rmse": 1101.4651,
-    "debiased_rmse": 1002.3392,
+    "error_sd": 1002.3392,
     "p95_abs": 2094.94,
-    "large_error_pct": 99.7666
+    "large_error_pct": 99.7666,
+    "debiased_rmse": 1016.9926,
+    "n_debiased": 717
    },
    {
     "model": "ukmo_seamless",
@@ -573,9 +687,11 @@
     "bias": -438.9189,
     "mae": 957.5684,
     "rmse": 1157.5093,
-    "debiased_rmse": 1071.0639,
+    "error_sd": 1071.0639,
     "p95_abs": 2181.82,
-    "large_error_pct": 100.0
+    "large_error_pct": 100.0,
+    "debiased_rmse": 1105.7017,
+    "n_debiased": 717
    },
    {
     "model": "gem_global",
@@ -583,9 +699,11 @@
     "bias": -102.0699,
     "mae": 882.4025,
     "rmse": 1205.3249,
-    "debiased_rmse": 1200.9954,
+    "error_sd": 1200.9954,
     "p95_abs": 2547.54,
-    "large_error_pct": 100.0
+    "large_error_pct": 100.0,
+    "debiased_rmse": 1141.3743,
+    "n_debiased": 717
    },
    {
     "model": "gfs_seamless",
@@ -593,9 +711,11 @@
     "bias": -304.3903,
     "mae": 990.8239,
     "rmse": 1284.0325,
-    "debiased_rmse": 1247.4318,
+    "error_sd": 1247.4318,
     "p95_abs": 2590.42,
-    "large_error_pct": 99.6499
+    "large_error_pct": 99.6499,
+    "debiased_rmse": 1133.019,
+    "n_debiased": 717
    },
    {
     "model": "cma_grapes_global",
@@ -603,9 +723,11 @@
     "bias": -612.1464,
     "mae": 1219.2405,
     "rmse": 1422.5756,
-    "debiased_rmse": 1284.1331,
+    "error_sd": 1284.1331,
     "p95_abs": 2560.4,
-    "large_error_pct": 100.0
+    "large_error_pct": 100.0,
+    "debiased_rmse": 1273.5188,
+    "n_debiased": 717
    }
   ],
   "growth": {

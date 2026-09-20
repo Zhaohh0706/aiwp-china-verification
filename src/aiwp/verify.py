@@ -29,22 +29,89 @@ RANDOM_SEED = 42
 LARGE_ERROR_C = 3.0
 
 
-def scores(errors: np.ndarray) -> dict:
+DEBIAS_WINDOW = 30
+DEBIAS_MIN_HISTORY = 15
+
+
+def out_of_sample_debias(
+    pairs: pd.DataFrame, window: int = DEBIAS_WINDOW, min_history: int = DEBIAS_MIN_HISTORY
+) -> pd.DataFrame:
+    """Add ``debiased_error``: what is left after an offset fitted on earlier days.
+
+    A station offset is the first correction anyone applies before using a global
+    model locally, so the useful question is how much error survives it.  The
+    offset has to be estimated the way a user would have to estimate it, from days
+    that had already happened: for each model, station and lead it is the mean
+    signed error over the previous ``window`` scored days of that same series,
+    strictly before the day being corrected, and it stays undefined until
+    ``min_history`` of them exist.
+
+    Subtracting the mean of the very sample being scored instead - the standard
+    deviation of the errors - gives a smaller number that no correction can
+    deliver, because it credits each model with having known its own bias in
+    advance.  That number is still reported, as ``error_sd``, for what it is: the
+    bias/spread split of this sample's own RMSE.
+    """
+    frame = pairs.copy()
+    frame["date"] = pd.to_datetime(frame["date"])
+    frame = frame.sort_values(["model", "station", "lead_days", "date"])
+    error = frame["error"].where(np.isfinite(frame["error"]))
+    offset = error.groupby(
+        [frame["model"], frame["station"], frame["lead_days"]], sort=False
+    ).transform(lambda e: e.shift(1).rolling(window, min_periods=min_history).mean())
+    frame["debias_offset"] = offset
+    frame["debiased_error"] = frame["error"] - offset
+    return frame
+
+
+def common_debiased(pairs: pd.DataFrame, drop: bool = False) -> pd.DataFrame:
+    """Line the debiased column up across models, without shortening anything else.
+
+    Each model reaches its fifteenth day of history on its own date, so left alone
+    the debiased column would compare models on slightly different days - the one
+    thing every other number here is careful not to do.  By default the offending
+    days are blanked in that column only, so the raw scores keep the whole record
+    and ``n_debiased`` says how much of it the debiased column saw.
+
+    ``drop=True`` removes those rows instead, for the one case that needs raw and
+    debiased on identical days: the share of error an offset removes is a ratio of
+    two numbers, and it means nothing if they are about different days.
+    """
+    frame = pairs.copy()
+    complete = (
+        frame.assign(_have=frame["debiased_error"].notna())
+        .groupby(["station", "date"])["_have"]
+        .transform("all")
+    )
+    if drop:
+        return frame[complete]
+    frame.loc[~complete, "debiased_error"] = np.nan
+    return frame
+
+
+def scores(errors: np.ndarray, debiased: np.ndarray | None = None) -> dict:
     errors = np.asarray(errors, dtype=float)
     errors = errors[np.isfinite(errors)]
     if errors.size == 0:
         return {"n": 0}
-    return {
+    out = {
         "n": int(errors.size),
         "bias": float(np.mean(errors)),
         "mae": float(np.mean(np.abs(errors))),
         "rmse": float(np.sqrt(np.mean(errors**2))),
-        # Error left after removing a constant offset: what a calibration step
-        # could not fix.
-        "debiased_rmse": float(np.std(errors)),
+        # The bias/spread split of this sample's own RMSE: rmse^2 = bias^2 + sd^2.
+        # A decomposition of what happened, not a forecast of what a correction
+        # would achieve - `debiased_rmse` is that, and it is larger.
+        "error_sd": float(np.std(errors)),
         "p95_abs": float(np.percentile(np.abs(errors), 95)),
         "large_error_pct": float(100.0 * np.mean(np.abs(errors) >= LARGE_ERROR_C)),
     }
+    if debiased is not None:
+        left = np.asarray(debiased, dtype=float)
+        left = left[np.isfinite(left)]
+        out["debiased_rmse"] = float(np.sqrt(np.mean(left**2))) if left.size else float("nan")
+        out["n_debiased"] = int(left.size)
+    return out
 
 
 def common_sample(pairs: pd.DataFrame, keys=("station", "date", "lead_days")) -> pd.DataFrame:
@@ -59,10 +126,13 @@ def common_sample(pairs: pd.DataFrame, keys=("station", "date", "lead_days")) ->
 
 
 def scorecard(pairs: pd.DataFrame, by=("model", "lead_days")) -> pd.DataFrame:
+    """Scores per group.  Carries the debiased column through when it is present."""
+    has_debiased = "debiased_error" in pairs
     rows = []
     for key, group in pairs.groupby(list(by)):
         entry = dict(zip(by, key if isinstance(key, tuple) else (key,)))
-        entry.update(scores(group["error"].to_numpy()))
+        left = group["debiased_error"].to_numpy() if has_debiased else None
+        entry.update(scores(group["error"].to_numpy(), left))
         rows.append(entry)
     return pd.DataFrame(rows).sort_values(list(by)).reset_index(drop=True)
 
@@ -90,6 +160,11 @@ def paired_difference(
     draws = rng.choice(difference, size=(BOOTSTRAP_SAMPLES, difference.size), replace=True)
     means = draws.mean(axis=1)
     low, high = np.percentile(means, [2.5, 97.5])
+    # Two-sided bootstrap p, add-one smoothed so that it is never exactly zero:
+    # 2000 resamples cannot tell a one-in-ten-thousand difference from an
+    # impossible one, and printing 0.000 would claim that it can.
+    below, above = int((means <= 0).sum()), int((means >= 0).sum())
+    p_boot = min(1.0, 2.0 * min(below + 1, above + 1) / (BOOTSTRAP_SAMPLES + 1))
 
     return {
         "model_a": model_a,
@@ -99,9 +174,34 @@ def paired_difference(
         "mean_diff_abs_error": float(difference.mean()),
         "ci_low": float(low),
         "ci_high": float(high),
+        "p_boot": float(p_boot),
         "a_is_better": bool(high < 0.0),
         "b_is_better": bool(low > 0.0),
     }
+
+
+def holm_reject(pvalues, alpha: float = 0.05) -> list[bool]:
+    """Holm-Bonferroni step-down over one family of comparisons.
+
+    A page that names a winner at each of twelve stations makes twelve
+    judgements, and twelve judgements each taken at 5% are not a 5% statement
+    about the page: with nothing going on anywhere, the chance that at least one
+    of them clears the bar is about 46%.  Holm sorts the p-values, asks the
+    smallest to clear ``alpha / k``, the next ``alpha / (k - 1)``, and stops at
+    the first failure - everything from there down is rejected too, which is why
+    it cannot be applied test by test.
+
+    It controls the error rate inside the family it is given.  It says nothing
+    about a reader who compares the station page with the monthly page, and
+    nothing about the choice of which family to look at.
+    """
+    order = sorted(range(len(pvalues)), key=lambda i: pvalues[i])
+    out = [False] * len(pvalues)
+    surviving = True
+    for rank, i in enumerate(order):
+        surviving = surviving and pvalues[i] <= alpha / (len(pvalues) - rank)
+        out[i] = surviving
+    return out
 
 
 def rank_table(pairs: pd.DataFrame, lead: int, reference: str = "ecmwf_ifs025") -> pd.DataFrame:

@@ -89,7 +89,21 @@ def first_place(pairs: pd.DataFrame, lead: int) -> dict:
     best, second = card.iloc[0]["model"], card.iloc[1]["model"]
     test = verify.paired_difference(pairs, best, second, lead)
     return {"model": best, "runner_up": second, "tie": not test.get("a_is_better", False),
+            "p": float(test.get("p_boot", float("nan"))),
             "rmse": float(card.iloc[0]["rmse"]), "n": int(card.iloc[0]["n"])}
+
+
+def hold_up_together(winners: dict) -> dict:
+    """Mark the winners in one table that survive a correction for the whole table.
+
+    Each winner here was judged on its own interval.  A reader does not read one
+    row, they read the table, so the family to correct over is the table.
+    """
+    keys = [k for k, w in winners.items() if w and np.isfinite(w.get("p", np.nan))]
+    kept = verify.holm_reject([winners[k]["p"] for k in keys])
+    for key, keep in zip(keys, kept):
+        winners[key]["holm"] = bool(keep)
+    return winners
 
 
 def fmt(value: float, digits: int) -> str:
@@ -102,6 +116,10 @@ def section(variable: str, spec: dict) -> tuple[list[str], dict]:
     inconsistent = verify.lead_consistency(pairs)
     for item in inconsistent:
         pairs = pairs[~((pairs["model"] == item["model"]) & (pairs["lead_days"] == item["lead_days"]))]
+    # The rolling offset is fitted per model, station and lead on the whole record,
+    # before the common sample narrows it: the days a user would have had are the
+    # days that happened, not the days every model happens to cover.
+    pairs = verify.out_of_sample_debias(pairs)
     sample, coverage = eligible(pairs, (1,))
     core, core_coverage = eligible(pairs, SCORED_LEADS)
     digits = spec["digits"]
@@ -123,11 +141,16 @@ def section(variable: str, spec: dict) -> tuple[list[str], dict]:
 
     # 1. day-1 scorecard, every model that covers day 1
     out += ["**提前 1 天评分表**（越小越好）", "",
-            "| 模式 | 均方根误差 | 去掉常数偏差后 | 偏差 | 平均绝对误差 |", "|---|---|---|---|---|"]
-    day1 = verify.scorecard(sample, by=("model",)).set_index("model").sort_values("rmse")
+            "| 模式 | 均方根误差 | 滚动去偏后 | 偏差 | 平均绝对误差 |", "|---|---|---|---|---|"]
+    day1 = verify.scorecard(verify.common_debiased(sample), by=("model",)).set_index("model").sort_values("rmse")
     for model, row in day1.iterrows():
         out.append(f"| {label(model)} | {fmt(row['rmse'], digits)} | {fmt(row['debiased_rmse'], digits)} | "
                    f"{row['bias']:+,.{digits}f} | {fmt(row['mae'], digits)} |")
+    out += ["", f"“滚动去偏后”是每天用该模式在这个点位之前 {verify.DEBIAS_WINDOW} 天的平均误差估一个偏移量、"
+                f"再减掉它之后剩下的误差。偏移量只用当天以前的数据，历史不足 {verify.DEBIAS_MIN_HISTORY} 天、"
+                f"或者有模式还没攒够历史的日子整天不计入，这一列的共同样本是 {int(day1['n_debiased'].max()):,} 个站日。"
+                "改用当期样本自己的平均偏差去减，会得到一个更小、但任何校准都拿不到的数。"
+                "本来就几乎没有偏差的模式，这一列可能比原来还高，那是估计偏移量本身带来的噪声。"]
     winner = first_place(sample, 1)
     verdict = "与第二名在统计上分不开" if winner["tie"] else "对第二名的领先是显著的"
     out += ["", f"第一名是 {label(winner['model'])}，{verdict}（第二名 {label(winner['runner_up'])}，按天配对自举）。", ""]
@@ -145,27 +168,41 @@ def section(variable: str, spec: dict) -> tuple[list[str], dict]:
     out += [""]
 
     # 2. month by month
-    out += ["**逐月第一名**（提前 1 天）", "", "| 月份 | 第一名 | 均方根误差 | 第二名 | 领先是否显著 |", "|---|---|---|---|---|"]
     monthly = {}
     for month, group in sample.groupby(sample["date"].dt.to_period("M")):
         w = first_place(group, 1)
-        if not w:
-            continue
-        monthly[str(month)] = w
-        out.append(f"| {month} | {label(w['model'])} | {fmt(w['rmse'], digits)} | {label(w.get('runner_up', ''))} | {'否，算并列' if w['tie'] else '是'} |")
+        if w:
+            monthly[str(month)] = w
+    hold_up_together(monthly)
+    out += ["**逐月第一名**（提前 1 天）", "",
+            "| 月份 | 第一名 | 均方根误差 | 第二名 | 单独看是否显著 | 放进整张表看 |", "|---|---|---|---|---|---|"]
+    for month, w in monthly.items():
+        out.append(f"| {month} | {label(w['model'])} | {fmt(w['rmse'], digits)} | {label(w.get('runner_up', ''))} | "
+                   f"{'否，算并列' if w['tie'] else '是'} | {'是' if w.get('holm') else '不成立'} |")
     wins = pd.Series([w["model"] for w in monthly.values()]).value_counts()
-    out += ["", f"{len(monthly)} 个月里，" + "，".join(f"{label(m)} {n} 次" for m, n in wins.items()) + "拿到第一。", ""]
+    out += ["", f"{len(monthly)} 个月里，" + "，".join(f"{label(m)} {n} 次" for m, n in wins.items()) + "拿到第一；"
+            f"其中单独看显著的 {sum(not w['tie'] for w in monthly.values())} 个月，"
+            f"按整张表校正后还成立的 {sum(bool(w.get('holm')) for w in monthly.values())} 个月。", ""]
 
     # 3. station by station
-    out += ["**逐站第一名**（提前 1 天）", "", "| 点位 | 第一名 | 均方根误差 | 第二名 | 领先是否显著 |", "|---|---|---|---|---|"]
     by_station = {}
     for slug in stations:
-        w = first_place(sample[sample["station"] == slug], 1)
-        by_station[slug] = w
+        by_station[slug] = first_place(sample[sample["station"] == slug], 1)
+    hold_up_together(by_station)
+    out += ["**逐站第一名**（提前 1 天）", "",
+            "| 点位 | 第一名 | 均方根误差 | 第二名 | 单独看是否显著 | 放进整张表看 |", "|---|---|---|---|---|---|"]
+    for slug in stations:
+        w = by_station[slug]
         name = BY_SLUG[slug].name_zh if slug in BY_SLUG else slug
-        out.append(f"| {name} | {label(w['model'])} | {fmt(w['rmse'], digits)} | {label(w.get('runner_up', ''))} | {'否，算并列' if w['tie'] else '是'} |")
+        out.append(f"| {name} | {label(w['model'])} | {fmt(w['rmse'], digits)} | {label(w.get('runner_up', ''))} | "
+                   f"{'否，算并列' if w['tie'] else '是'} | {'是' if w.get('holm') else '不成立'} |")
     station_wins = pd.Series([w["model"] for w in by_station.values()]).value_counts()
-    out += ["", f"{len(stations)} 个点位里，" + "，".join(f"{label(m)} {n} 个" for m, n in station_wins.items()) + "。", ""]
+    solid = sum(bool(w.get("holm")) for w in by_station.values())
+    out += ["", f"{len(stations)} 个点位里，" + "，".join(f"{label(m)} {n} 个" for m, n in station_wins.items()) + "。"
+            f"但这些第一名里，单独看能和第二名分开的有 {sum(not w['tie'] for w in by_station.values())} 个，"
+            f"把十几个点位当成一张表一起校正之后只剩 {solid} 个。"
+            "也就是说，多数点位上“哪个模式最好”这件事，现有样本量还答不了；"
+            "各站第一名各不相同，本身不足以证明必须按站选模式。", ""]
 
     summary = {"window": [str(start), str(end)], "stations": stations, "coverage": coverage,
                "overall_day1": winner, "inconsistent_leads": inconsistent, "monthly": monthly, "by_station": by_station,

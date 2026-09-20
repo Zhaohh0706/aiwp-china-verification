@@ -98,7 +98,7 @@ def figure_lead_growth(china: pd.DataFrame, suffix: str = "", variable_label: st
 def figure_bias_vs_skill(china: pd.DataFrame, suffix: str = "", variable_label: str = "daily maximum 2 m temperature (°C)") -> None:
     """How much of each model's error is a constant offset."""
     board = verify.scorecard(china[china["lead_days"] == 1])
-    board["bias_share"] = 100.0 * board["bias"] ** 2 / board["rmse"] ** 2
+    board["bias_share"] = 100.0 * (1.0 - board["debiased_rmse"] ** 2 / board["rmse"] ** 2)
     best = board.sort_values("rmse")["model"].iloc[0]
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 3.6))
@@ -106,14 +106,14 @@ def figure_bias_vs_skill(china: pd.DataFrame, suffix: str = "", variable_label: 
     order = board.sort_values("rmse")
     y = np.arange(len(order))
     colours = [_colour(m, best) for m in order["model"]]
-    axes[0].barh(y, order["debiased_rmse"], color=colours, label="error left after debiasing")
+    axes[0].barh(y, order["debiased_rmse"], color=colours, label="error left after a rolling offset")
     axes[0].barh(
         y,
         order["rmse"] - order["debiased_rmse"],
         left=order["debiased_rmse"],
         color=colours,
         alpha=0.35,
-        label="the part a constant would remove",
+        label="the part the offset removes",
     )
     axes[0].set_yticks(y)
     axes[0].set_yticklabels([MODEL_LABEL.get(m, m) for m in order["model"]], fontsize=8)
@@ -137,7 +137,7 @@ def figure_bias_vs_skill(china: pd.DataFrame, suffix: str = "", variable_label: 
         )
     axes[1].axvline(0, color="#334155", linewidth=0.8, linestyle="--")
     axes[1].set_xlabel("Mean bias at day 1   ← low        high →")
-    axes[1].set_ylabel("RMSE after removing the bias")
+    axes[1].set_ylabel("RMSE after a rolling offset")
     axes[1].set_title("A small bias is not the same as a good model", fontsize=9.5)
 
 
@@ -451,8 +451,9 @@ def figure_ai_vs_physics() -> None:
 def main() -> None:
     FIGURES.mkdir(parents=True, exist_ok=True)
     for variable in available():
-        pairs = load(variable)
-        china = sets(pairs[pairs["group"] == "china"])["core"]
+        # Same rolling offset the report uses, fitted before any subsetting.
+        pairs = verify.out_of_sample_debias(load(variable))
+        china = verify.common_debiased(sets(pairs[pairs["group"] == "china"])["core"])
         suffix = "" if variable == "temperature_2m" else f"_{variable}"
         figure_lead_growth(china, suffix, VARIABLE_LABEL.get(variable, variable))
         figure_bias_vs_skill(china, suffix, VARIABLE_LABEL.get(variable, variable))
