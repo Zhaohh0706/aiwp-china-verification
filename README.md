@@ -214,6 +214,60 @@ Station biases are not uniform. GFS is 3.0 °C cold at Hong Kong and 1.4 °C
 **warm** at Shenzhen, two stations 30 km apart, which is a coastal
 representativeness problem rather than a model-physics one.
 
+## Where the plants are: a leaderboard for the energy provinces
+
+The nine airports above were chosen to cover the country. A plant operator needs
+the ranking where the plants are, so the same models are scored on two further
+sets and written as one dated page, [`reports/leaderboard/`](reports/leaderboard/),
+that can be regenerated each month: twelve airports across the north, north-east
+and north-west for 10 m wind against METAR, and ten points inside PV-base
+counties — Gonghe, Golmud, Zhongwei, Dunhuang, Hami, Dalad, Zhangbei, Datong,
+Dongying, Yancheng — for daily irradiation against satellite retrieval.
+
+**Wind, March 2025 to August 2026, 4,584 station-days.** NOAA GFS is first at
+day 1 (0.90 m/s) and its lead over UKMO is significant; CMA GRAPES, first at the
+nine national airports, is third here, and ECMWF AIFS is last. Change the stations
+and the ranking changes, which is the finding of this repository once more. With
+each model's constant offset removed the order changes again: DWD ICON goes from
+fifth to first (0.81), because its problem is a 0.72 m/s under-forecast and not
+its day-to-day skill. Month by month GFS takes first place in 13 of 18 months but
+only two of those leads are distinguishable from the runner-up. Station by
+station there are six different winners across twelve airports, three of them
+significant. Nobody running plants in several provinces can buy one model.
+
+**Irradiation, late May to August 2026, 857 station-days.** ECMWF AIFS (957
+Wh/m²) and ECMWF IFS (967) are level at day 1, with Météo-France ARPEGE third and
+CMA GRAPES last. AIFS carries a −446 Wh/m² bias and would lead clearly with it
+removed; IFS carries none. AIFS also grows slowest with lead, +50% from day 1 to
+day 5 against +73 to +75% for IFS and ICON, which is what the 2025 window showed
+at the anonymised sites. Four of the ten points go to AIFS and four to ARPEGE, one
+each to IFS and ICON, and only one of those ten leads is significant.
+
+Building this set found three things wrong with the inputs rather than the models.
+
+- **"Still updating" does not mean hourly.** The wind bases themselves — Hami,
+  Jiuquan, Xilingol, Zhangbei — have airports and no usable METAR record. Of the
+  46 Chinese stations the archive lists as current, Jinan returned 350 reports in
+  eighteen months and Ordos and Nantong none with a wind speed. Each candidate was
+  checked for a full month of hourly wind before it was used.
+- **The satellite archive has moved.** In mid-September 2025-dated irradiance
+  could be fetched for these longitudes; now the same product starts in May 2026.
+  The irradiation window is therefore about a hundred days, and the 2025 pairs
+  committed here can no longer be rebuilt from source.
+- **The forecast archive serves a different quantity at some leads.** GEM's
+  irradiance beyond day 3 runs 30% above its own day-1 forecasts for the same
+  dates, and from 2026-08-11 reaches 2,900 W/m² at noon, twice the solar
+  constant; ARPEGE runs 8 to 13% high at days 2 and 3. Every other model agrees
+  with itself across leads to within 1%. Scored as delivered, GEM's day-5 error
+  was 6,590 Wh/m² and looked like a result. Two guards now stand in the way:
+  hourly irradiance above 1,400 W/m² is discarded, and a model-lead whose mean
+  departs from the same model's day-1 mean by more than 10% is dropped for the
+  window and named on the page. The pairs published for 2025 pass both.
+
+The unit guard on irradiance had also been comparing the API's hourly W/m² with
+the daily total's Wh/m² and would have refused every request; a warm cache had
+kept that from showing. It now compares against what the API returns.
+
 ## Why fixed lead is the whole study
 
 An earlier version of this dataset was assembled from Open-Meteo's historical
@@ -292,7 +346,7 @@ pip install pandas pyarrow numpy scipy matplotlib pytest
 pip install -e .
 
 make verify figures   # every table and figure, from the pairs committed in data/
-make test             # 37 tests
+make test             # 40 tests
 make data             # optional: rebuild the pairs from the archives (slow, quota-bound)
 ```
 

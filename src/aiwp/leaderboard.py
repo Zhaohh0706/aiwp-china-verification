@@ -53,17 +53,30 @@ SETS = {
 # A model has to cover most of the window to be ranked on the common sample;
 # one that ran on a quarter of the days would shrink everyone's sample to its own.
 MIN_COVERAGE = 0.80
+SCORED_LEADS = (1, 3, 5)
 
 
 def label(model: str) -> str:
     return MODEL_LABEL.get(model, model)
 
 
-def eligible(pairs: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    """Keep models with enough coverage, then restrict to days all of them ran."""
-    day1 = pairs[pairs["lead_days"] == 1]
-    total = day1.groupby("station")["date"].nunique().sum()
-    coverage = (day1.groupby("model").size() / total).round(3).to_dict()
+def eligible(pairs: pd.DataFrame, leads: tuple[int, ...]) -> tuple[pd.DataFrame, dict]:
+    """Keep models with enough coverage at every lead asked for, then the common sample.
+
+    Two sets come out of this, as in the main study.  The day-1 ranking takes every
+    model that covers day 1.  The table across leads takes only models that cover
+    day 5 as well: one archived to day 3 is complete at day 1 and absent at day 5,
+    and would otherwise empty the common sample at the leads it never ran.
+    """
+    coverage = {}
+    pairs = pairs[pairs["lead_days"].isin(leads)]
+    for model in sorted(pairs["model"].unique()):
+        shares = []
+        for lead in leads:
+            at_lead = pairs[pairs["lead_days"] == lead]
+            total = at_lead.groupby("station")["date"].nunique().sum()
+            shares.append(float((at_lead["model"] == model).sum() / total) if total else 0.0)
+        coverage[model] = round(min(shares), 3)
     keep = [m for m, c in coverage.items() if c >= MIN_COVERAGE]
     return verify.common_sample(pairs[pairs["model"].isin(keep)]), coverage
 
@@ -86,30 +99,50 @@ def fmt(value: float, digits: int) -> str:
 def section(variable: str, spec: dict) -> tuple[list[str], dict]:
     pairs = pd.read_parquet(spec["pairs"])
     pairs["date"] = pd.to_datetime(pairs["date"])
-    sample, coverage = eligible(pairs)
+    inconsistent = verify.lead_consistency(pairs)
+    for item in inconsistent:
+        pairs = pairs[~((pairs["model"] == item["model"]) & (pairs["lead_days"] == item["lead_days"]))]
+    sample, coverage = eligible(pairs, (1,))
+    core, core_coverage = eligible(pairs, SCORED_LEADS)
     digits = spec["digits"]
     stations = sorted(sample["station"].unique())
     start, end = sample["date"].min().date(), sample["date"].max().date()
-    mean_obs = float(sample[sample["lead_days"] == 1].drop_duplicates(["station", "date"])["observed"].mean())
+    mean_obs = float(sample.drop_duplicates(["station", "date"])["observed"].mean())
 
     out = [f"## {spec['title']}", "",
            f"{len(stations)} 个点位，{start} 至 {end}，"
-           f"共同样本 {sample[sample['lead_days'] == 1].groupby(['station', 'date']).ngroups:,} 个站日。"
+           f"提前 1 天的共同样本 {sample.groupby(['station', 'date']).ngroups:,} 个站日。"
            f"观测均值 {fmt(mean_obs, digits)} {spec['unit']}。", ""]
+    if inconsistent:
+        out += ["存档里下列模式在这些时效上的预报与它自己提前 1 天的预报气候态对不上（均值相差超过 10%），"
+                "说明存档给出的不是同一个量，已整段剔除："
+                + "；".join(f"{label(i['model'])} 提前 {i['lead_days']} 天（是提前 1 天的 {i['ratio_to_day1']:.2f} 倍）" for i in inconsistent) + "。", ""]
     dropped = {label(m): f"{c:.0%}" for m, c in coverage.items() if c < MIN_COVERAGE}
     if dropped:
-        out += ["覆盖不足 80%、未参与排名的模式：" + "，".join(f"{k}（{v}）" for k, v in dropped.items()) + "。", ""]
+        out += ["提前 1 天覆盖不足 80%、未参与排名的模式：" + "，".join(f"{k}（{v}）" for k, v in dropped.items()) + "。", ""]
 
-    # 1. scorecard at three leads
-    out += ["**评分表**（均方根误差，越小越好；括号里是去掉常数偏差之后的值）", "",
-            "| 模式 | 提前 1 天 | 提前 3 天 | 提前 5 天 | 偏差（提前 1 天） |", "|---|---|---|---|---|"]
-    cards = {lead: verify.scorecard(sample[sample["lead_days"] == lead], by=("model",)).set_index("model") for lead in (1, 3, 5)}
-    for model in cards[1].sort_values("rmse").index:
-        cells = [f"{fmt(cards[l].loc[model, 'rmse'], digits)}（{fmt(cards[l].loc[model, 'debiased_rmse'], digits)}）" for l in (1, 3, 5)]
-        out.append(f"| {label(model)} | " + " | ".join(cells) + f" | {cards[1].loc[model, 'bias']:+,.{digits}f} |")
+    # 1. day-1 scorecard, every model that covers day 1
+    out += ["**提前 1 天评分表**（越小越好）", "",
+            "| 模式 | 均方根误差 | 去掉常数偏差后 | 偏差 | 平均绝对误差 |", "|---|---|---|---|---|"]
+    day1 = verify.scorecard(sample, by=("model",)).set_index("model").sort_values("rmse")
+    for model, row in day1.iterrows():
+        out.append(f"| {label(model)} | {fmt(row['rmse'], digits)} | {fmt(row['debiased_rmse'], digits)} | "
+                   f"{row['bias']:+,.{digits}f} | {fmt(row['mae'], digits)} |")
     winner = first_place(sample, 1)
     verdict = "与第二名在统计上分不开" if winner["tie"] else "对第二名的领先是显著的"
-    out += ["", f"提前 1 天第一名是 {label(winner['model'])}，{verdict}（第二名 {label(winner['runner_up'])}，按天配对自举）。", ""]
+    out += ["", f"第一名是 {label(winner['model'])}，{verdict}（第二名 {label(winner['runner_up'])}，按天配对自举）。", ""]
+
+    # 1b. error growth, only models archived out to day 5
+    cards = {lead: verify.scorecard(core[core["lead_days"] == lead], by=("model",)).set_index("model") for lead in SCORED_LEADS}
+    out += ["**误差随时效的增长**（均方根误差；只含存档到提前 5 天的模式，三个时效各用自己的共同样本）", "",
+            "| 模式 | 提前 1 天 | 提前 3 天 | 提前 5 天 | 增长 |", "|---|---|---|---|---|"]
+    for model in cards[1].sort_values("rmse").index:
+        a, b, c = (cards[l].loc[model, "rmse"] for l in SCORED_LEADS)
+        out.append(f"| {label(model)} | {fmt(a, digits)} | {fmt(b, digits)} | {fmt(c, digits)} | {100 * (c / a - 1):+.0f}% |")
+    short = {label(m): f"{v:.0%}" for m, v in core_coverage.items() if v < MIN_COVERAGE and coverage.get(m, 0) >= MIN_COVERAGE}
+    if short:
+        out += ["", "提前 1 天有数据、但没有存档到提前 5 天的模式不在这张表里：" + "，".join(short) + "。"]
+    out += [""]
 
     # 2. month by month
     out += ["**逐月第一名**（提前 1 天）", "", "| 月份 | 第一名 | 均方根误差 | 第二名 | 领先是否显著 |", "|---|---|---|---|---|"]
@@ -135,8 +168,9 @@ def section(variable: str, spec: dict) -> tuple[list[str], dict]:
     out += ["", f"{len(stations)} 个点位里，" + "，".join(f"{label(m)} {n} 个" for m, n in station_wins.items()) + "。", ""]
 
     summary = {"window": [str(start), str(end)], "stations": stations, "coverage": coverage,
-               "overall_day1": winner, "monthly": monthly, "by_station": by_station,
-               "scorecard_day1": cards[1].round(4).reset_index().to_dict("records")}
+               "overall_day1": winner, "inconsistent_leads": inconsistent, "monthly": monthly, "by_station": by_station,
+               "scorecard_day1": day1.round(4).reset_index().to_dict("records"),
+               "growth": {str(l): cards[l]["rmse"].round(4).to_dict() for l in SCORED_LEADS}}
     return out, summary
 
 

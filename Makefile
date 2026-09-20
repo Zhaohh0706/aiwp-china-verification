@@ -1,7 +1,7 @@
 PY := python
 SRC := PYTHONPATH=src $(PY)
 
-.PHONY: data verify figures test all
+.PHONY: data verify figures test all energy leaderboard
 
 all: data verify figures
 
@@ -20,3 +20,13 @@ figures:
 
 test:
 	$(SRC) -m pytest tests -q
+
+# The energy-province sets, to the end of last month.  Quota-bound: the forecast
+# archive allows a few stations an hour, and cached stations are skipped on rerun.
+END ?= $(shell date -v1d -v-1d +%Y-%m-%d 2>/dev/null || date -d "$$(date +%Y-%m-01) -1 day" +%Y-%m-%d)
+energy:
+	$(SRC) -u -m aiwp.build_dataset --ai --energy --variable wind_speed_10m --start 2025-03-01 --end $(END)
+	$(SRC) -u -m aiwp.build_dataset --ai --energy --variable shortwave_radiation --start 2026-05-01 --end $(END)
+
+leaderboard:
+	$(SRC) -m aiwp.leaderboard

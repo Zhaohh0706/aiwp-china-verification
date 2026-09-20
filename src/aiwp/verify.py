@@ -123,3 +123,30 @@ def error_growth(pairs: pd.DataFrame) -> pd.DataFrame:
         .rename("rmse")
         .reset_index()
     )
+
+
+def lead_consistency(pairs: pd.DataFrame, tolerance: float = 0.10) -> list[dict]:
+    """Model-lead combinations whose forecasts do not share a climate with day 1.
+
+    Whatever a model gets wrong about tomorrow, its forecasts for a given date made
+    one day ahead and five days ahead describe the same season at the same place,
+    so their means agree to within a few per cent.  When they do not, the archive
+    is not serving the same quantity at both leads - accumulated values as means,
+    a coarser output interval resampled badly - and an error computed on that lead
+    measures the archive.  In mid-2026 the irradiance archive has GEM running 30%
+    high beyond day 3 and ARPEGE 8 to 13% high at days 2 and 3, while every other
+    model is within 1%.
+    """
+    value = "forecast" if "forecast" in pairs else "forecast_c"
+    wide = pairs.pivot_table(index=["model", "station", "date"], columns="lead_days", values=value, aggfunc="first")
+    flagged = []
+    for lead in [c for c in wide.columns if c != 1]:
+        both = wide[[1, lead]].dropna()
+        for model, group in both.groupby(level="model"):
+            base = group[1].mean()
+            if len(group) < 30 or not np.isfinite(base) or base == 0:
+                continue
+            ratio = float(group[lead].mean() / base)
+            if abs(ratio - 1.0) > tolerance:
+                flagged.append({"model": model, "lead_days": int(lead), "ratio_to_day1": round(ratio, 3), "n": int(len(group))})
+    return flagged

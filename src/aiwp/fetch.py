@@ -119,6 +119,13 @@ VARIABLES = {
         # API returns, not against what the reduction produces - it did not, and
         # only a warm cache kept that from showing.
         "forecast_unit": "W/m²",
+        # No hourly mean at the surface can exceed the solar constant, 1,361 W/m².
+        # From 2026-08-12 the archive's GEM fields at four and five days ahead run
+        # to 2,900 W/m² at noon - accumulated values served as means, by the look
+        # of them - and a daily total built on those is 24 kWh/m² where the sky
+        # delivers 9.  Hours above this limit are discarded, which drops the day
+        # for that model and lead, and the count is printed.
+        "physical_max": 1400.0,
         "label": "日辐照量",
         "min_hours": 22,
         # JMA GSM publishes no surface radiation through this archive.  It is
@@ -389,9 +396,16 @@ def build_pairs(
     """One row per (station, model, lead, date) with forecast and observation."""
     how = VARIABLES[variable]["reduce"]
     min_hours = VARIABLES[variable].get("min_hours", 18)
-    fc = daily(
-        forecasts(station, start, end, variable=variable, models=models), how, min_hours
-    )
+    hourly = forecasts(station, start, end, variable=variable, models=models)
+    limit = VARIABLES[variable].get("physical_max")
+    if limit is not None:
+        impossible = hourly["value"] > limit
+        if impossible.any():
+            where = hourly[impossible].groupby(["model", "lead_days"]).size()
+            print(f"{station.slug}: {int(impossible.sum())} hourly values above {limit:g} discarded "
+                  f"({', '.join(f'{m} day {l}: {n}' for (m, l), n in where.items())})")
+            hourly = hourly.assign(value=hourly["value"].where(~impossible))
+    fc = daily(hourly, how, min_hours)
     obs = daily(observations(station, start, end, variable=variable), how, min_hours)
     obs = obs.rename(columns={"daily_value": "observed"})[["station", "date", "observed"]]
     pairs = fc.rename(columns={"daily_value": "forecast"}).merge(
