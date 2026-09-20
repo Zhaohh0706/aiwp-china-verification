@@ -468,7 +468,5 @@ reports/               scorecards, results.json, figures
 
 ## Related repositories
 
-- [grid-rule-watch](https://github.com/Zhaohh0706/grid-rule-watch) — which provincial grid rules changed, and which document says so
-- [pv-wind-power-forecast](https://github.com/Zhaohh0706/pv-wind-power-forecast) — PV and wind forecasting, priced against Chinese grid-code assessment
 - [cn-weather-cube](https://github.com/Zhaohh0706/cn-weather-cube) — point weather with units attached and sources named
 - [green-ai-ledger](https://github.com/Zhaohh0706/green-ai-ledger) — compute energy and carbon, with the grid factor pinned rather than guessed
