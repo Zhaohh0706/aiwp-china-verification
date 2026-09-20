@@ -7,6 +7,10 @@ part most comparisons skip. Temperature and wind are scored against station
 observations; solar irradiation, where no station instrument exists, against a
 satellite retrieval.
 
+A second set scores the same models where the plants are — twelve airports in the
+wind provinces and ten points inside PV-base counties — and is regenerated as a
+[monthly leaderboard](#where-the-plants-are-a-leaderboard-for-the-energy-provinces).
+
 The question is not which model wins a global average. It is which one is
 closest **here**, on the variable you actually care about, and how much of its
 error is a constant anyone could remove.
@@ -347,7 +351,9 @@ pip install -e .
 
 make verify figures   # every table and figure, from the pairs committed in data/
 make test             # 40 tests
+make leaderboard      # the energy-province page, from the pairs committed in data/
 make data             # optional: rebuild the pairs from the archives (slow, quota-bound)
+make energy           # optional: extend the energy-province pairs to the end of last month
 ```
 
 `make data` runs `aiwp.build_dataset` once per variable and window — temperature
@@ -397,19 +403,25 @@ are downloaded and the lead control is identical.
 ```
 src/aiwp/
   stations.py          the nine Chinese stations and four controls with ICAO
-                       codes, and the eight photovoltaic sites
+                       codes, the eight photovoltaic sites, and the two
+                       energy-province sets
   fetch.py             fixed-lead forecasts, METAR observations, daily reduction,
-                       and a unit guard on what the API returns
-  verify.py            scores, common sample, paired bootstrap
+                       a unit guard on what the API returns, and a physical
+                       limit on hourly irradiance
+  verify.py            scores, common sample, paired bootstrap, and the check
+                       that a model's leads share one climate
   build_dataset.py     fetch everything, print the coverage audit
   run_verification.py  scorecards, significance tests, cross-variable ranking
   make_figures.py      eleven figures from six templates
-tests/                 37 tests, expectations hand-computed
+  leaderboard.py       the energy-province page: day-1 ranking, growth with lead,
+                       first place by month and by station, each with a paired test
+tests/                 40 tests, expectations hand-computed
 reports/               scorecards, results.json, figures
 ```
 
 ## Related repositories
 
+- [grid-rule-watch](https://github.com/Zhaohh0706/grid-rule-watch) — which provincial grid rules changed, and which document says so
 - [pv-wind-power-forecast](https://github.com/Zhaohh0706/pv-wind-power-forecast) — PV and wind forecasting, priced against Chinese grid-code assessment
 - [cn-weather-cube](https://github.com/Zhaohh0706/cn-weather-cube) — point weather with units attached and sources named
 - [green-ai-ledger](https://github.com/Zhaohh0706/green-ai-ledger) — compute energy and carbon, with the grid factor pinned rather than guessed
