@@ -246,16 +246,20 @@ def section(variable: str, spec: dict) -> tuple[list[str], dict]:
 
     summary = {"window": [str(start), str(end)], "stations": stations, "coverage": coverage,
                "overall_day1": winner, "inconsistent_leads": inconsistent, "monthly": monthly, "by_station": by_station,
-               "scorecard_day1": day1.round(4).reset_index().to_dict("records"),
-               "skill_over_persistence": skill.round(4).to_dict("records"),
-               "growth": {str(l): cards[l]["rmse"].round(4).to_dict() for l in SCORED_LEADS}}
+               "scorecard_day1": day1.round(6).reset_index().to_dict("records"),
+               "skill_over_persistence": skill.round(6).to_dict("records"),
+               "growth": {str(l): cards[l]["rmse"].round(6).to_dict() for l in SCORED_LEADS}}
     return out, summary
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", default=None, help="page name, default the last month in the data")
+    parser.add_argument("--out", default=None,
+                        help="write somewhere else than reports/leaderboard; used by the "
+                             "reproducibility check, which must not touch the committed pages")
     args = parser.parse_args()
+    out_dir = Path(args.out) if args.out else OUT
 
     body, summary = [], {}
     for variable, spec in SETS.items():
@@ -272,10 +276,10 @@ def main() -> None:
             "要注意的三点：机场离风电场有几十到几百公里，10 米也不是轮毂高度，这里量的是各模式在这些省份的近地面风速，不是风电场的风；"
             "辐照的“实测”是卫星反演，本身有几个百分点的误差，各模式对的是同一份反演，名次不受影响，绝对误差偏大；"
             "光伏点位是在光伏基地所在县里取的整数坐标点，不是任何一个电站的位置。", ""]
-    OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / f"{tag}.md").write_text("\n".join(head + body) + "\n", encoding="utf-8")
-    (OUT / f"{tag}.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
-    print(f"wrote reports/leaderboard/{tag}.md")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / f"{tag}.md").write_text("\n".join(head + body) + "\n", encoding="utf-8")
+    (out_dir / f"{tag}.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+    print(f"wrote {out_dir}/{tag}.md")
 
 
 if __name__ == "__main__":

@@ -23,3 +23,10 @@ jobs:
       - name: install from pyproject only
         run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
       - run: python -m pytest -q
+
+      # The other half of that claim: the pages in reports/ have to be what the
+      # data in data/ produces.  A scoring rule edited without re-running, or a
+      # pandas default that shifts under us, leaves a page that no longer matches
+      # its own parquet and looks exactly like a correct page.
+      - name: 报告能不能从数据里原样重算出来
+        run: python scripts/check_reproducible.py
