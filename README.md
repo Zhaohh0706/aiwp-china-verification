@@ -315,12 +315,21 @@ On those four inland stations, one day ahead, over January to March 2025
 | **Pangu-Weather (AI)** | 1.05 | no, a tie |
 | **GraphCast (AI)** | 1.11 | yes |
 
-**The machine-learned models do not win here.** At three days CMA GRAPES leads
-and both Pangu and Aurora are significantly behind it. That agrees with the main
-study, where CMA GRAPES is first on wind — and it is one season, four stations
-and about a hundred station-days, which is why every row carries whether it can
-be told apart from the first at all. The full page, both leads and the
-station-level diagnosis, is [reports/mlwp.md](reports/mlwp.md).
+**The machine-learned models do not win here.** At three days CMA GRAPES leads,
+NOAA GFS ties it, and all three learned models are significantly behind. That
+agrees with the main study, where CMA GRAPES is first on wind.
+
+One thing does turn over between the two leads: GraphCast is the worst of the
+three learned models at one day (1.11) and the best of them at three (1.15),
+because it barely degrades while Aurora goes 1.01 → 1.23 and Pangu 1.05 → 1.24.
+Read that as a hint rather than a result — the two leads are scored on their own
+common samples, 88 and 120 station-days, and a difference that size is not
+something a hundred station-days settles.
+
+One season, four stations, about a hundred station-days each: that is why every
+row carries whether it can be told apart from the first at all, and why most
+cannot. The full page, both leads and the station-level diagnosis, is
+[reports/mlwp.md](reports/mlwp.md).
 
 ## Hub height, and what it costs to verify without an instrument
 

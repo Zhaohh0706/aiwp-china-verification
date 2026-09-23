@@ -42,12 +42,6 @@
   "chongqing",
   "qingdao"
  ],
- "missing": [
-  {
-   "model": "graphcast_noaa",
-   "lead_days": 3
-  }
- ],
  "lead_1": [
   {
    "model": "gfs_seamless",
@@ -180,6 +174,16 @@
    "error_sd": 0.777939,
    "p95_abs": 1.894141,
    "large_error_pct": 1.666667
+  },
+  {
+   "model": "graphcast_noaa",
+   "n": 120,
+   "bias": -0.735389,
+   "mae": 0.895058,
+   "rmse": 1.150652,
+   "error_sd": 0.884988,
+   "p95_abs": 2.240819,
+   "large_error_pct": 2.5
   },
   {
    "model": "gem_global",
