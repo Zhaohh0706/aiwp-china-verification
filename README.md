@@ -277,6 +277,42 @@ Station biases are not uniform. GFS is 3.0 °C cold at Hong Kong and 1.4 °C
 **warm** at Shenzhen, two stations 30 km apart, which is a coastal
 representativeness problem rather than a model-physics one.
 
+## Hub height, and what it costs to verify without an instrument
+
+10 m is not where a rotor turns, and the leaderboard says so in its own caveats.
+Closing that gap runs into two hard facts: only four of the ten models publish
+100 m wind through this archive — ECMWF IFS, NOAA GFS, DWD ICON and ECMWF AIFS —
+and nothing at these airports measures wind at that height, so the only available
+truth is ERA5.
+
+ERA5 is a reanalysis produced by ECMWF, and two of the four models being judged
+are ECMWF's own. That is normally written as a caveat and forgotten. It does not
+have to be: the same four models also forecast 10 m wind, where an anemometer
+exists, so the same ranking can be computed twice on the same 6,576 station-days,
+once against each truth.
+
+| Model | vs anemometer | vs ERA5 | Change | Rank, anemometer | Rank, ERA5 |
+|---|---|---|---|---|---|
+| NOAA GFS | 0.90 | 0.91 | +0.00 | **1** | 3 |
+| ECMWF IFS | 1.07 | 0.77 | −0.30 | 2 | 2 |
+| DWD ICON | 1.07 | 1.03 | −0.04 | 3 | 4 |
+| ECMWF AIFS (AI) | 1.20 | 0.55 | **−0.65** | 4 | **1** |
+
+Changing the yardstick, and nothing else, is worth **0.47 m/s to the two ECMWF
+models and 0.02 m/s to the other two** — and it inverts the ranking. The biggest
+winner is AIFS, which is a machine-learned model **trained on ERA5**: scoring it
+against ERA5 is close to scoring it against its own training target.
+
+That number then reads the 100 m table for you. Across those four models the
+whole table spans 0.33 m/s, which is *less* than the 0.45 m/s the yardstick is
+worth. So the 100 m ranking cannot be read as a ranking — the bias of the
+measuring stick alone is enough to produce it. The full page is
+[reports/hub_height.md](reports/hub_height.md).
+
+This is also the reason irradiation here is verified against a satellite
+retrieval rather than a reanalysis, and the reason that choice is worth the
+trouble.
+
 ## Where the plants are: a leaderboard for the energy provinces
 
 The nine airports above were chosen to cover the country. A plant operator needs

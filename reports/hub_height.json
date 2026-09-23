@@ -1,0 +1,104 @@
+{
+ "lead": 1,
+ "models": [
+  "ecmwf_ifs025",
+  "gfs_seamless",
+  "icon_seamless",
+  "ecmwf_aifs025_single"
+ ],
+ "shared_station_days": 6576,
+ "era5_gain_ecmwf": 0.47371026993477783,
+ "era5_gain_others": 0.02170657843159357,
+ "cards": {
+  "10m_metar": [
+   {
+    "model": "gfs_seamless",
+    "rmse": 0.90464,
+    "bias": 0.084632,
+    "mae": 0.684176,
+    "n": 6576
+   },
+   {
+    "model": "ecmwf_ifs025",
+    "rmse": 1.071143,
+    "bias": -0.624678,
+    "mae": 0.85309,
+    "n": 6576
+   },
+   {
+    "model": "icon_seamless",
+    "rmse": 1.07354,
+    "bias": -0.70741,
+    "mae": 0.833347,
+    "n": 6576
+   },
+   {
+    "model": "ecmwf_aifs025_single",
+    "rmse": 1.196643,
+    "bias": -0.508429,
+    "mae": 0.936008,
+    "n": 6576
+   }
+  ],
+  "10m_era5": [
+   {
+    "model": "ecmwf_aifs025_single",
+    "rmse": 0.548805,
+    "bias": -0.341105,
+    "mae": 0.431284,
+    "n": 6576
+   },
+   {
+    "model": "ecmwf_ifs025",
+    "rmse": 0.771561,
+    "bias": -0.457354,
+    "mae": 0.591482,
+    "n": 6576
+   },
+   {
+    "model": "gfs_seamless",
+    "rmse": 0.905759,
+    "bias": 0.251956,
+    "mae": 0.690136,
+    "n": 6576
+   },
+   {
+    "model": "icon_seamless",
+    "rmse": 1.029008,
+    "bias": -0.540087,
+    "mae": 0.74162,
+    "n": 6576
+   }
+  ],
+  "100m_era5": [
+   {
+    "model": "ecmwf_aifs025_single",
+    "rmse": 0.771107,
+    "bias": -0.459157,
+    "mae": 0.594357,
+    "n": 6588
+   },
+   {
+    "model": "ecmwf_ifs025",
+    "rmse": 0.885435,
+    "bias": -0.321697,
+    "mae": 0.682061,
+    "n": 6588
+   },
+   {
+    "model": "icon_seamless",
+    "rmse": 0.963363,
+    "bias": 0.004456,
+    "mae": 0.725819,
+    "n": 6588
+   },
+   {
+    "model": "gfs_seamless",
+    "rmse": 1.10078,
+    "bias": 0.227187,
+    "mae": 0.831189,
+    "n": 6588
+   }
+  ]
+ }
+}

@@ -34,6 +34,7 @@ from .stations import Station
 PREVIOUS_RUNS = "https://previous-runs-api.open-meteo.com/v1/forecast"
 ASOS = "https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py"
 SATELLITE = "https://satellite-api.open-meteo.com/v1/archive"
+ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
 
 CACHE = Path(__file__).resolve().parents[2] / "data" / "interim"
 
@@ -149,6 +150,45 @@ VARIABLES = {
         # producing a scorecard that still looks like a scorecard.  Both sides
         # are converted explicitly.
         "request": {"wind_speed_unit": "ms"},
+    },
+    # Hub height.  A turbine's rotor sits at 80 to 140 m, and the leaderboard's
+    # own caveat is that 10 m is not that.  Two things constrain what can be
+    # done about it here:
+    #
+    # * Only four of the ten models publish 100 m wind through this archive -
+    #   IFS, GFS, ICON and AIFS.  The other six return an empty column, so they
+    #   are excluded by name rather than left to be silently emptied.
+    # * Nothing at these airports measures 100 m wind, so the truth has to be
+    #   ERA5 - a reanalysis, not an instrument, and one produced by ECMWF.  Two
+    #   of the four models being judged are ECMWF's own, and their analysis is
+    #   the thing they are being compared against.
+    #
+    # The second point is not a caveat to be written and forgotten: it is
+    # measurable.  ``wind_speed_10m_era5`` below scores the same four models at
+    # 10 m against ERA5, where a station instrument also exists, so the shift
+    # between the two rankings is the size of the kinship, in m/s.
+    "wind_speed_100m": {
+        "forecast": "wind_speed_100m",
+        "truth": "era5",
+        "reduce": "mean",
+        "unit": "m/s",
+        "label": "日平均 100 m 风速",
+        "request": {"wind_speed_unit": "ms"},
+        "models": ["ecmwf_ifs025", "gfs_seamless", "icon_seamless", "ecmwf_aifs025_single"],
+    },
+    # The control for the line above, and nothing else.  Same models, same days,
+    # same 10 m wind the main study verifies against airport instruments - but
+    # scored against ERA5 instead.  Whatever this ranking does that the METAR
+    # ranking does not is what the reanalysis contributes, and that is the
+    # correction to carry into reading the 100 m table.
+    "wind_speed_10m_era5": {
+        "forecast": "wind_speed_10m",
+        "truth": "era5",
+        "reduce": "mean",
+        "unit": "m/s",
+        "label": "日平均 10 m 风速（真值改用 ERA5）",
+        "request": {"wind_speed_unit": "ms"},
+        "models": ["ecmwf_ifs025", "gfs_seamless", "icon_seamless", "ecmwf_aifs025_single"],
     },
 }
 
@@ -279,8 +319,11 @@ def observations(
     station here measures.
     """
     CACHE.mkdir(parents=True, exist_ok=True)
-    if VARIABLES[variable].get("truth") == "satellite":
+    truth = VARIABLES[variable].get("truth")
+    if truth == "satellite":
         return _satellite_observations(station, start, end, variable, refresh)
+    if truth == "era5":
+        return _era5_observations(station, start, end, variable, refresh)
     field = VARIABLES[variable]["metar"]
     path = CACHE / f"obs_{variable}_{station.slug}_{start}_{end}.parquet"
     if path.exists() and not refresh:
@@ -359,6 +402,52 @@ def _satellite_observations(
             },
         ).decode("utf-8")
     )
+    hourly = payload["hourly"]
+    frame = pd.DataFrame({"time": pd.to_datetime(hourly["time"]), "value": hourly[field]})
+    frame = frame.dropna(subset=["value"])
+    frame["station"] = station.slug
+    frame = frame.sort_values("time")
+    frame.to_parquet(path, index=False)
+    return frame
+
+
+def _era5_observations(
+    station: Station, start: str, end: str, variable: str, refresh: bool
+) -> pd.DataFrame:
+    """ERA5 at a point, hourly, local time - a reanalysis standing in for truth.
+
+    Used only where no instrument exists at the height in question.  ERA5 is
+    itself a model run, so what it provides is consistency, not measurement: it
+    does not see a gust an anemometer would see, and it was produced by one of
+    the centres whose forecasts are being scored.  Every table built on it says
+    so, and the 10 m control quantifies it.
+    """
+    path = CACHE / f"obs_{variable}_{station.slug}_{start}_{end}.parquet"
+    if path.exists() and not refresh:
+        return pd.read_parquet(path)
+
+    field = VARIABLES[variable]["forecast"]
+    payload = json.loads(
+        _get(
+            ARCHIVE,
+            {
+                "latitude": station.latitude,
+                "longitude": station.longitude,
+                "start_date": start,
+                "end_date": end,
+                "hourly": field,
+                "models": "era5",
+                "timezone": station.timezone,
+                **VARIABLES[variable].get("request", {}),
+            },
+        ).decode("utf-8")
+    )
+    unit = payload.get("hourly_units", {}).get(field)
+    expected = VARIABLES[variable].get("forecast_unit", VARIABLES[variable]["unit"])
+    if unit and unit.replace("²", "2") != expected.replace("²", "2"):
+        raise RuntimeError(
+            f"{station.slug}: ERA5 returned {field} in {unit!r}, expected {expected!r}"
+        )
     hourly = payload["hourly"]
     frame = pd.DataFrame({"time": pd.to_datetime(hourly["time"]), "value": hourly[field]})
     frame = frame.dropna(subset=["value"])
