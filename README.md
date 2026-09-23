@@ -46,6 +46,17 @@ days of each record, and any day the hourly-coverage rule discarded, have no
 baseline; the station-day counts are printed beside every number in the
 [leaderboard](reports/leaderboard/).
 
+**The same baseline says the opposite thing at a shorter horizon**, which is
+worth stating here because it is the reason a weather model is bought at all. In
+a companion study of plant-level power forecasting (pv-wind-power-forecast, not
+public), a learned model inside four hours gains only 0.02 to 0.13 skill over
+plain persistence on wind, and clear-sky persistence is 1 to 20 per cent behind
+it on photovoltaics — beating it outright at one of seven stations. Nowcasting
+is where doing nothing is nearly as good as doing something. Day-ahead is where
+it stops being: the gap this page measures, half the squared error on wind and
+five sixths on irradiation, is what a numerical weather prediction buys you and
+an extrapolation of the last observation cannot.
+
 ## The finding
 
 **There is no best model. There is a best model per variable, and the ranking
