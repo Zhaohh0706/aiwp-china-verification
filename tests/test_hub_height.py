@@ -48,3 +48,67 @@ def test_the_four_models_are_the_ones_that_publish_both_heights():
     assert hub_height.MODELS == VARIABLES["wind_speed_100m"]["models"]
     assert hub_height.MODELS == VARIABLES["wind_speed_10m_era5"]["models"]
     assert hub_height.ECMWF < set(hub_height.MODELS)
+
+
+# --------------------------------------------------------------------------
+# The NOAA machine-learned archive
+# --------------------------------------------------------------------------
+
+
+def test_the_cache_key_is_stable_across_processes():
+    """A cache keyed on hash() is written by one run and invisible to the next.
+
+    Python randomises string hashing per process, so the file lands under a name
+    the next run does not look for - which is indistinguishable from the fetch
+    never having happened, and costs the whole download again.
+    """
+    import subprocess
+    import sys
+
+    from aiwp import mlwp
+    from aiwp.stations import CHINA
+
+    def key_in_a_fresh_process() -> str:
+        code = ("import sys; sys.path.insert(0, 'src');"
+                "from aiwp import mlwp; from aiwp.stations import CHINA;"
+                "import inspect, hashlib;"
+                "print(hashlib.sha1(','.join(sorted(s.slug for s in CHINA)).encode()).hexdigest()[:8])")
+        return subprocess.run([sys.executable, "-c", code], capture_output=True,
+                              text=True, cwd=str(mlwp.CACHE.parents[1])).stdout.strip()
+
+    first, second = key_in_a_fresh_process(), key_in_a_fresh_process()
+    assert first and first == second
+
+
+def test_synoptic_daily_keeps_only_the_four_analysis_hours():
+    """Twenty hourly reports and four synoptic ones are different daily means."""
+    from aiwp import mlwp
+
+    hours = pd.date_range("2025-01-01 08:00", periods=24, freq="h")  # local time, UTC+8
+    frame = pd.DataFrame({"time": hours, "value": 1.0, "station": "x"})
+    frame.loc[frame["time"].dt.hour.isin([8, 14, 20, 2]), "value"] = 5.0
+    out = mlwp.synoptic_daily(frame)
+    # Local 08/14/20/02 are UTC 00/06/12/18, so every kept hour has the value 5.
+    assert not out.empty
+    assert out["value"].iloc[0] == pytest.approx(5.0)
+
+
+def test_synoptic_daily_drops_a_day_with_fewer_than_three_of_the_four():
+    from aiwp import mlwp
+
+    hours = pd.to_datetime(["2025-01-01 08:00", "2025-01-01 14:00"])  # only two
+    frame = pd.DataFrame({"time": hours, "value": 3.0, "station": "x"})
+    assert mlwp.synoptic_daily(frame).empty
+
+
+def test_a_station_outside_utc_plus_eight_is_refused():
+    """The local-to-UTC shift here is a constant, and a wrong constant is silent.
+
+    It would still produce four values a day, just at the wrong four hours, and
+    every number downstream would look ordinary.
+    """
+    from aiwp import mlwp
+    from aiwp.stations import CHINA, CONTROL
+
+    with pytest.raises(ValueError, match="UTC"):
+        mlwp._check_timezones(list(CHINA) + list(CONTROL))

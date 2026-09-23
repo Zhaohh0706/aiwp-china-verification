@@ -14,6 +14,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.4"]
+# Reading NOAA's machine-learned-model archive.  It is a kerchunk index over
+# NetCDF, so the whole archive opens as one array and a station costs one chunk
+# rather than one file.  Optional because nothing else in the package needs it.
+mlwp = ["xarray>=2024.1", "zarr>=2.16,<3", "kerchunk>=0.2", "fsspec>=2024.2",
+        "s3fs>=2024.2", "fastparquet>=2024.2"]
 
 [build-system]
 requires = ["setuptools>=68"]

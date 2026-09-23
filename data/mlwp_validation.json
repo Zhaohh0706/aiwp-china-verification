@@ -1,0 +1,22 @@
+{
+ "n": 108,
+ "month": "2025-03",
+ "mean_abs_gap": 0.44609822282084716,
+ "max_abs_gap": 2.293736610412598,
+ "correlation": 0.9113447511774517,
+ "mean_level": 2.2403472222222223,
+ "signed_gap": 0.2802789010824981,
+ "between_stations": 0.5194791275838323,
+ "within_station": 0.33333947757426424,
+ "per_station": {
+  "beijing": 0.382,
+  "chengdu": -0.131,
+  "chongqing": 0.024,
+  "guangzhou": -0.012,
+  "hong-kong": 1.367,
+  "qingdao": 0.009,
+  "shanghai": 0.7,
+  "shenzhen": 0.496,
+  "taipei": -0.311
+ }
+}

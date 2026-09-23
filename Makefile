@@ -1,7 +1,7 @@
 PY := python
 SRC := PYTHONPATH=src $(PY)
 
-.PHONY: data verify figures test all energy leaderboard hub hub-data
+.PHONY: data verify figures test all energy leaderboard hub hub-data mlwp mlwp-data
 
 all: data verify figures
 
@@ -40,3 +40,12 @@ hub-data:
 
 hub:
 	$(SRC) -m aiwp.hub_height
+
+# Pangu, Aurora and GraphCast from NOAA's archive.  Needs the mlwp extra; the
+# fetch is the slow part and caches, so the report is offline afterwards.
+mlwp-data:
+	$(SRC) -u -c "from aiwp import mlwp; from aiwp.stations import CHINA; \
+	[mlwp.wind(m, CHINA, mlwp.WINDOW[0], mlwp.WINDOW[1], l) for m in mlwp.MODELS for l in mlwp.LEADS]"
+
+mlwp:
+	$(SRC) -m aiwp.mlwp

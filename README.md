@@ -277,6 +277,51 @@ Station biases are not uniform. GFS is 3.0 °C cold at Hong Kong and 1.4 °C
 **warm** at Shenzhen, two stations 30 km apart, which is a coastal
 representativeness problem rather than a model-physics one.
 
+## Pangu and Aurora: the models no point API serves
+
+This repository carries two machine-learned models because those are the two a
+point API serves. Pangu-Weather, Aurora and FourCastNet are not on any point
+API, and that used to be the end of it.
+
+NOAA archives all of them — twice a day since 2020, as global fields, with a
+kerchunk index that makes the archive readable as one array. A chunk is one run
+at one lead over the whole globe, so a station costs the same as a country and
+nine stations cost the same as one. Three months of one model at one lead takes
+about four minutes.
+
+**The check came before the result, and it found something.** NOAA's GraphCast
+and the point API's GraphCast are the same model from the same initial
+conditions, so they have to agree. They correlate at 0.911 and differ by 0.446
+m/s — twenty per cent of the mean wind. Split by station, the answer is clean:
+the spread of per-station offsets is 0.519 and the residual after removing them
+is 0.333, and every large offset is coastal — Hong Kong +1.37, Shanghai Pudong
++0.70, Shenzhen +0.50 — while the inland stations sit at ±0.13.
+
+**A 0.25° nearest grid point at a coastal airport lands on water**, and sea is
+smooth, so 10 m wind there is systematically stronger. The point API interpolates
+and handles the land-sea boundary. That offset moves the three archive models and
+not the point API's models, which is exactly the comparison being made — so the
+scorecard runs on the stations where the two sources agree, and says so.
+
+On those four inland stations, one day ahead, over January to March 2025
+(88 station-days):
+
+| | RMSE | Distinguishable from first? |
+|---|---|---|
+| NOAA GFS | **0.86** | — |
+| CMA GRAPES | 0.89 | no, a tie |
+| ECMWF IFS | 0.93 | no, a tie |
+| **Aurora (AI)** | 1.01 | yes |
+| **Pangu-Weather (AI)** | 1.05 | no, a tie |
+| **GraphCast (AI)** | 1.11 | yes |
+
+**The machine-learned models do not win here.** At three days CMA GRAPES leads
+and both Pangu and Aurora are significantly behind it. That agrees with the main
+study, where CMA GRAPES is first on wind — and it is one season, four stations
+and about a hundred station-days, which is why every row carries whether it can
+be told apart from the first at all. The full page, both leads and the
+station-level diagnosis, is [reports/mlwp.md](reports/mlwp.md).
+
 ## Hub height, and what it costs to verify without an instrument
 
 10 m is not where a rotor turns, and the leaderboard says so in its own caveats.
