@@ -119,6 +119,10 @@ def section(variable: str, spec: dict) -> tuple[list[str], dict]:
     # The rolling offset is fitted per model, station and lead on the whole record,
     # before the common sample narrows it: the days a user would have had are the
     # days that happened, not the days every model happens to cover.
+    # The observation series is taken before anything narrows the frame: the day
+    # a persistence baseline copies from is a day that happened, not a day that
+    # survived the common-sample rule.
+    truth = verify.observation_series(pairs)
     pairs = verify.out_of_sample_debias(pairs)
     sample, coverage = eligible(pairs, (1,))
     core, core_coverage = eligible(pairs, SCORED_LEADS)
@@ -138,6 +142,38 @@ def section(variable: str, spec: dict) -> tuple[list[str], dict]:
     dropped = {label(m): f"{c:.0%}" for m, c in coverage.items() if c < MIN_COVERAGE}
     if dropped:
         out += ["提前 1 天覆盖不足 80%、未参与排名的模式：" + "，".join(f"{k}（{v}）" for k, v in dropped.items()) + "。", ""]
+
+    # 0. the question before any ranking: is any of this better than doing nothing
+    skill = verify.skill_over_persistence(core, truth)
+    out += ["**先回答一个问题：比什么都不做强多少**", "",
+            "持续法是照抄 N 天前的实测——提前 1 天的预报拿前一天的值，提前 5 天的拿 5 天前的值。"
+            "时效对齐是这件事的全部意义：一个永远用昨天的基准会在提前 5 天上赢过所有模式，那个数没有意义。", "",
+            "| 时效 | 持续法 | 当期最好的模式 | 技巧评分 | 站日 |", "|---|---|---|---|---|"]
+    for lead in SCORED_LEADS:
+        at_lead = skill[skill["lead_days"] == lead].sort_values("skill", ascending=False)
+        if at_lead.empty:
+            continue
+        best = at_lead.iloc[0]
+        out.append(f"| 提前 {lead} 天 | {fmt(best['persistence_rmse'], digits)} | {label(best['model'])} "
+                   f"{fmt(best['rmse'], digits)} | {best['skill']:.2f} | {best['n']:,} |")
+    out += ["", "技巧评分是 1 − 模式均方误差 ÷ 持续法均方误差：0 分等于什么都不做，1 分等于完美。"
+            "越往后看这个数越不该当真——持续法在提前 5 天时本身已经差到接近气候态，"
+            "衬得每个模式都好看。真正要看的是提前 1 天那一行。"
+            "持续法只能用数据集里有的实测，所以头几天和实测被小时数规则丢掉的日子没有基准，站日数比模式少一些。"
+            "这张表和下面那张“误差随时效的增长”用同一组模式（存档到提前 5 天的那些）的共同样本，"
+            "参评模式比提前 1 天评分表少一个，共同样本因此更大，站日数和评分表对不上是这个原因。"]
+    # The line worth writing down, when it holds: a five-day forecast beating
+    # yesterday's weather is the plain-language version of the whole table.
+    day1_base = skill[skill["lead_days"] == 1]
+    day5_best = skill[skill["lead_days"] == SCORED_LEADS[-1]].sort_values("rmse")
+    if not day1_base.empty and not day5_best.empty:
+        base1 = float(day1_base["persistence_rmse"].iloc[0])
+        best5 = day5_best.iloc[0]
+        if float(best5["rmse"]) < base1:
+            out += ["", f"换一句话说：{label(best5['model'])} 提前 {SCORED_LEADS[-1]} 天的预报"
+                    f"（{fmt(float(best5['rmse']), digits)}），仍然比照抄昨天"
+                    f"（{fmt(base1, digits)}）准。"]
+    out += [""]
 
     # 1. day-1 scorecard, every model that covers day 1
     out += ["**提前 1 天评分表**（越小越好）", "",
@@ -162,6 +198,10 @@ def section(variable: str, spec: dict) -> tuple[list[str], dict]:
     for model in cards[1].sort_values("rmse").index:
         a, b, c = (cards[l].loc[model, "rmse"] for l in SCORED_LEADS)
         out.append(f"| {label(model)} | {fmt(a, digits)} | {fmt(b, digits)} | {fmt(c, digits)} | {100 * (c / a - 1):+.0f}% |")
+    base = verify.scorecard(verify.persistence(core, truth), by=("model", "lead_days")).set_index("lead_days")
+    if all(lead in base.index for lead in SCORED_LEADS):
+        a, b, c = (float(base.loc[lead, "rmse"]) for lead in SCORED_LEADS)
+        out.append(f"| {label(verify.PERSISTENCE)} | {fmt(a, digits)} | {fmt(b, digits)} | {fmt(c, digits)} | {100 * (c / a - 1):+.0f}% |")
     short = {label(m): f"{v:.0%}" for m, v in core_coverage.items() if v < MIN_COVERAGE and coverage.get(m, 0) >= MIN_COVERAGE}
     if short:
         out += ["", "提前 1 天有数据、但没有存档到提前 5 天的模式不在这张表里：" + "，".join(short) + "。"]
@@ -207,6 +247,7 @@ def section(variable: str, spec: dict) -> tuple[list[str], dict]:
     summary = {"window": [str(start), str(end)], "stations": stations, "coverage": coverage,
                "overall_day1": winner, "inconsistent_leads": inconsistent, "monthly": monthly, "by_station": by_station,
                "scorecard_day1": day1.round(4).reset_index().to_dict("records"),
+               "skill_over_persistence": skill.round(4).to_dict("records"),
                "growth": {str(l): cards[l]["rmse"].round(4).to_dict() for l in SCORED_LEADS}}
     return out, summary
 

@@ -411,6 +411,176 @@
     "n_debiased": 4404
    }
   ],
+  "skill_over_persistence": [
+   {
+    "model": "ecmwf_aifs025_single",
+    "lead_days": 1,
+    "n": 5364,
+    "rmse": 1.1771,
+    "persistence_rmse": 1.2835,
+    "skill": 0.1589
+   },
+   {
+    "model": "ecmwf_aifs025_single",
+    "lead_days": 3,
+    "n": 5340,
+    "rmse": 1.2667,
+    "persistence_rmse": 1.497,
+    "skill": 0.284
+   },
+   {
+    "model": "ecmwf_aifs025_single",
+    "lead_days": 5,
+    "n": 5292,
+    "rmse": 1.357,
+    "persistence_rmse": 1.5477,
+    "skill": 0.2313
+   },
+   {
+    "model": "ecmwf_ifs025",
+    "lead_days": 1,
+    "n": 5364,
+    "rmse": 1.0526,
+    "persistence_rmse": 1.2835,
+    "skill": 0.3275
+   },
+   {
+    "model": "ecmwf_ifs025",
+    "lead_days": 3,
+    "n": 5340,
+    "rmse": 1.12,
+    "persistence_rmse": 1.497,
+    "skill": 0.4403
+   },
+   {
+    "model": "ecmwf_ifs025",
+    "lead_days": 5,
+    "n": 5292,
+    "rmse": 1.2102,
+    "persistence_rmse": 1.5477,
+    "skill": 0.3886
+   },
+   {
+    "model": "gem_global",
+    "lead_days": 1,
+    "n": 5364,
+    "rmse": 1.0654,
+    "persistence_rmse": 1.2835,
+    "skill": 0.311
+   },
+   {
+    "model": "gem_global",
+    "lead_days": 3,
+    "n": 5340,
+    "rmse": 1.1729,
+    "persistence_rmse": 1.497,
+    "skill": 0.3862
+   },
+   {
+    "model": "gem_global",
+    "lead_days": 5,
+    "n": 5292,
+    "rmse": 1.2583,
+    "persistence_rmse": 1.5477,
+    "skill": 0.339
+   },
+   {
+    "model": "gfs_seamless",
+    "lead_days": 1,
+    "n": 5364,
+    "rmse": 0.89,
+    "persistence_rmse": 1.2835,
+    "skill": 0.5191
+   },
+   {
+    "model": "gfs_seamless",
+    "lead_days": 3,
+    "n": 5340,
+    "rmse": 1.0212,
+    "persistence_rmse": 1.497,
+    "skill": 0.5346
+   },
+   {
+    "model": "gfs_seamless",
+    "lead_days": 5,
+    "n": 5292,
+    "rmse": 1.1176,
+    "persistence_rmse": 1.5477,
+    "skill": 0.4786
+   },
+   {
+    "model": "icon_seamless",
+    "lead_days": 1,
+    "n": 5364,
+    "rmse": 1.0594,
+    "persistence_rmse": 1.2835,
+    "skill": 0.3188
+   },
+   {
+    "model": "icon_seamless",
+    "lead_days": 3,
+    "n": 5340,
+    "rmse": 1.1229,
+    "persistence_rmse": 1.497,
+    "skill": 0.4374
+   },
+   {
+    "model": "icon_seamless",
+    "lead_days": 5,
+    "n": 5292,
+    "rmse": 1.2224,
+    "persistence_rmse": 1.5477,
+    "skill": 0.3762
+   },
+   {
+    "model": "jma_seamless",
+    "lead_days": 1,
+    "n": 5364,
+    "rmse": 1.1611,
+    "persistence_rmse": 1.2835,
+    "skill": 0.1817
+   },
+   {
+    "model": "jma_seamless",
+    "lead_days": 3,
+    "n": 5340,
+    "rmse": 1.2928,
+    "persistence_rmse": 1.497,
+    "skill": 0.2542
+   },
+   {
+    "model": "jma_seamless",
+    "lead_days": 5,
+    "n": 5292,
+    "rmse": 1.3625,
+    "persistence_rmse": 1.5477,
+    "skill": 0.225
+   },
+   {
+    "model": "ukmo_seamless",
+    "lead_days": 1,
+    "n": 5364,
+    "rmse": 0.9255,
+    "persistence_rmse": 1.2835,
+    "skill": 0.48
+   },
+   {
+    "model": "ukmo_seamless",
+    "lead_days": 3,
+    "n": 5340,
+    "rmse": 1.03,
+    "persistence_rmse": 1.497,
+    "skill": 0.5266
+   },
+   {
+    "model": "ukmo_seamless",
+    "lead_days": 5,
+    "n": 5292,
+    "rmse": 1.1377,
+    "persistence_rmse": 1.5477,
+    "skill": 0.4596
+   }
+  ],
   "growth": {
    "1": {
     "ecmwf_aifs025_single": 1.1788,
@@ -728,6 +898,104 @@
     "large_error_pct": 100.0,
     "debiased_rmse": 1273.5188,
     "n_debiased": 717
+   }
+  ],
+  "skill_over_persistence": [
+   {
+    "model": "ecmwf_aifs025_single",
+    "lead_days": 1,
+    "n": 921,
+    "rmse": 981.9846,
+    "persistence_rmse": 2375.771,
+    "skill": 0.8292
+   },
+   {
+    "model": "ecmwf_aifs025_single",
+    "lead_days": 3,
+    "n": 899,
+    "rmse": 1144.9213,
+    "persistence_rmse": 2811.6109,
+    "skill": 0.8342
+   },
+   {
+    "model": "ecmwf_aifs025_single",
+    "lead_days": 5,
+    "n": 868,
+    "rmse": 1456.8959,
+    "persistence_rmse": 2833.9681,
+    "skill": 0.7357
+   },
+   {
+    "model": "ecmwf_ifs025",
+    "lead_days": 1,
+    "n": 921,
+    "rmse": 977.9432,
+    "persistence_rmse": 2375.771,
+    "skill": 0.8306
+   },
+   {
+    "model": "ecmwf_ifs025",
+    "lead_days": 3,
+    "n": 899,
+    "rmse": 1273.9002,
+    "persistence_rmse": 2811.6109,
+    "skill": 0.7947
+   },
+   {
+    "model": "ecmwf_ifs025",
+    "lead_days": 5,
+    "n": 868,
+    "rmse": 1680.3025,
+    "persistence_rmse": 2833.9681,
+    "skill": 0.6485
+   },
+   {
+    "model": "gfs_seamless",
+    "lead_days": 1,
+    "n": 921,
+    "rmse": 1263.5416,
+    "persistence_rmse": 2375.771,
+    "skill": 0.7171
+   },
+   {
+    "model": "gfs_seamless",
+    "lead_days": 3,
+    "n": 899,
+    "rmse": 1689.5321,
+    "persistence_rmse": 2811.6109,
+    "skill": 0.6389
+   },
+   {
+    "model": "gfs_seamless",
+    "lead_days": 5,
+    "n": 868,
+    "rmse": 1999.0353,
+    "persistence_rmse": 2833.9681,
+    "skill": 0.5024
+   },
+   {
+    "model": "icon_seamless",
+    "lead_days": 1,
+    "n": 921,
+    "rmse": 1105.5492,
+    "persistence_rmse": 2375.771,
+    "skill": 0.7835
+   },
+   {
+    "model": "icon_seamless",
+    "lead_days": 3,
+    "n": 899,
+    "rmse": 1420.8536,
+    "persistence_rmse": 2811.6109,
+    "skill": 0.7446
+   },
+   {
+    "model": "icon_seamless",
+    "lead_days": 5,
+    "n": 868,
+    "rmse": 1899.3773,
+    "persistence_rmse": 2833.9681,
+    "skill": 0.5508
    }
   ],
   "growth": {

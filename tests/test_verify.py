@@ -272,3 +272,89 @@ def test_station_list_is_coherent():
 def test_every_model_has_a_display_name():
     for model in fetch.MODELS:
         assert model in fetch.MODEL_LABEL
+
+
+# --------------------------------------------------------------------------
+# The do-nothing baseline
+# --------------------------------------------------------------------------
+
+
+def _obs_pairs(rows) -> pd.DataFrame:
+    """station, date, model, lead_days, observed - forecast/error not needed."""
+    frame = pd.DataFrame(rows, columns=["station", "date", "model", "lead_days", "observed"])
+    frame["date"] = pd.to_datetime(frame["date"])
+    return frame
+
+
+def test_persistence_copies_the_observation_from_lead_days_ago():
+    # Three consecutive days, one station, one model, at leads 1 and 2.
+    rows = []
+    for day, value in [("2025-01-01", 10.0), ("2025-01-02", 11.0), ("2025-01-03", 12.0)]:
+        for lead in (1, 2):
+            rows.append(["a", day, "m", lead, value])
+    base = verify.persistence(_obs_pairs(rows))
+
+    # Day 3 at lead 1 copies day 2; at lead 2 it copies day 1.  Mixing these up
+    # is the mistake that makes a baseline unbeatable at long leads.
+    day3 = base[base["date"] == pd.Timestamp("2025-01-03")].set_index("lead_days")
+    assert day3.loc[1, "forecast"] == 11.0
+    assert day3.loc[2, "forecast"] == 10.0
+    assert day3.loc[2, "error"] == pytest.approx(10.0 - 12.0)
+
+
+def test_persistence_makes_no_row_when_the_source_day_is_missing():
+    # The first day of a record has nothing behind it, and a gap in the middle
+    # leaves the day after it without a source.  Neither may be guessed.
+    rows = []
+    for day in ("2025-01-01", "2025-01-02", "2025-01-04"):
+        rows.append(["a", day, "m", 1, 5.0])
+    base = verify.persistence(_obs_pairs(rows))
+    assert set(base["date"].dt.strftime("%Y-%m-%d")) == {"2025-01-02"}
+
+
+def test_persistence_uses_every_station_separately():
+    rows = [["a", "2025-01-01", "m", 1, 1.0], ["a", "2025-01-02", "m", 1, 2.0],
+            ["b", "2025-01-01", "m", 1, 100.0], ["b", "2025-01-02", "m", 1, 200.0]]
+    base = verify.persistence(_obs_pairs(rows)).set_index("station")
+    assert base.loc["a", "forecast"] == 1.0
+    assert base.loc["b", "forecast"] == 100.0
+
+
+def test_skill_is_zero_for_a_model_that_is_the_baseline_and_one_for_a_perfect_one():
+    days = pd.date_range("2025-01-01", periods=12, freq="D")
+    observed = np.arange(12, dtype=float) ** 1.3
+    rows = []
+    for day, value in zip(days, observed):
+        rows.append(["a", day, "copycat", 1, value])
+        rows.append(["a", day, "perfect", 1, value])
+    frame = pd.DataFrame(rows, columns=["station", "date", "model", "lead_days", "observed"])
+    truth = verify.observation_series(frame)
+    lagged = verify.persistence(frame, truth).set_index("date")["forecast"]
+    frame["forecast"] = np.where(
+        frame["model"] == "perfect",
+        frame["observed"],
+        frame["date"].map(lagged),
+    )
+    frame = frame.dropna(subset=["forecast"])
+    frame["error"] = frame["forecast"] - frame["observed"]
+
+    skill = verify.skill_over_persistence(frame).set_index("model")
+    assert skill.loc["copycat", "skill"] == pytest.approx(0.0)
+    assert skill.loc["perfect", "skill"] == pytest.approx(1.0)
+    # Both are scored on the days the baseline exists, not on the whole record.
+    assert skill.loc["perfect", "n"] == len(days) - 1
+
+
+def test_skill_scores_model_and_baseline_on_the_same_days():
+    # The model is missing one day the baseline has.  Scoring the baseline over
+    # its extra day would compare two different samples.
+    days = pd.date_range("2025-01-01", periods=6, freq="D")
+    rows = [["a", day, "m", 1, float(i)] for i, day in enumerate(days)]
+    frame = pd.DataFrame(rows, columns=["station", "date", "model", "lead_days", "observed"])
+    truth = verify.observation_series(frame)
+    frame = frame[frame["date"] != days[3]].copy()
+    frame["forecast"] = frame["observed"] + 0.5
+    frame["error"] = 0.5
+    skill = verify.skill_over_persistence(frame, truth)
+    # Six days, one has no source day and one has no model row: four left.
+    assert int(skill["n"].iloc[0]) == 4

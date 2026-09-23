@@ -114,6 +114,83 @@ def scores(errors: np.ndarray, debiased: np.ndarray | None = None) -> dict:
     return out
 
 
+PERSISTENCE = "persistence"
+
+
+def observation_series(pairs: pd.DataFrame) -> pd.DataFrame:
+    """One observed value per station and day, from whatever rows are present.
+
+    Every model row at a station-day carries the same observation, so any of
+    them will do; taking it here means the baseline below can be built from a
+    dataset that is already on disk, without fetching anything.
+    """
+    return (
+        pairs.drop_duplicates(["station", "date"])[["station", "date", "observed"]]
+        .sort_values(["station", "date"])
+        .reset_index(drop=True)
+    )
+
+
+def persistence(pairs: pd.DataFrame, truth: pd.DataFrame | None = None) -> pd.DataFrame:
+    """What you get by doing nothing: the observation from ``lead_days`` ago.
+
+    A forecast issued three days before the event can use the observation of the
+    day it was issued, so the honest no-effort baseline at lead *n* is the value
+    *n* days earlier - not yesterday's, which no three-day forecast could have
+    known.  Matching the lead is the whole point: a baseline that always used
+    yesterday would beat the models at day 5 and mean nothing.
+
+    Days whose source observation is missing - the first ``lead`` days of the
+    record, and any day the hourly coverage rule discarded - produce no row
+    rather than a guess, so the count is smaller than the models' and is
+    reported wherever this is used.
+
+    The rows come back shaped like model rows (``model`` = ``persistence``) so
+    every scoring function already written applies to them unchanged.
+    """
+    truth = observation_series(pairs) if truth is None else truth
+    out = pairs.drop_duplicates(["station", "lead_days", "date"])[
+        ["station", "lead_days", "date", "observed"]
+    ].copy()
+    out["source_date"] = out["date"] - pd.to_timedelta(out["lead_days"], unit="D")
+    out = out.merge(
+        truth.rename(columns={"date": "source_date", "observed": "forecast"}),
+        on=["station", "source_date"],
+        how="left",
+    )
+    out = out.dropna(subset=["forecast"]).drop(columns="source_date")
+    out["model"] = PERSISTENCE
+    out["error"] = out["forecast"] - out["observed"]
+    return out.reset_index(drop=True)
+
+
+def skill_over_persistence(
+    pairs: pd.DataFrame, truth: pd.DataFrame | None = None, by=("model", "lead_days")
+) -> pd.DataFrame:
+    """Each model's error beside the do-nothing baseline's, on the same days.
+
+    Scored on the station-days where both exist, because a skill score computed
+    over different days is not a skill score.  ``skill`` is the usual
+    1 - MSE/MSE_reference: 0 means no better than doing nothing, 1 means perfect.
+    """
+    base = persistence(pairs, truth)[["station", "lead_days", "date", "error"]]
+    base = base.rename(columns={"error": "base_error"})
+    joined = pairs.merge(base, on=["station", "lead_days", "date"], how="inner")
+    rows = []
+    for key, group in joined.groupby(list(by)):
+        entry = dict(zip(by, key if isinstance(key, tuple) else (key,)))
+        model_mse = float(np.mean(group["error"].to_numpy() ** 2))
+        base_mse = float(np.mean(group["base_error"].to_numpy() ** 2))
+        entry.update(
+            n=int(len(group)),
+            rmse=float(np.sqrt(model_mse)),
+            persistence_rmse=float(np.sqrt(base_mse)),
+            skill=float(1.0 - model_mse / base_mse) if base_mse else float("nan"),
+        )
+        rows.append(entry)
+    return pd.DataFrame(rows).sort_values(list(by)).reset_index(drop=True)
+
+
 def common_sample(pairs: pd.DataFrame, keys=("station", "date", "lead_days")) -> pd.DataFrame:
     """Restrict to rows where every model present has a forecast.
 

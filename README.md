@@ -15,6 +15,37 @@ The question is not which model wins a global average. It is which one is
 closest **here**, on the variable you actually care about, and how much of its
 error is a constant anyone could remove.
 
+## First, is any of it better than doing nothing?
+
+A scorecard full of decimals is not worth reading until the baseline is on it.
+The baseline is persistence: copy the observation from `lead` days ago — at one
+day ahead, yesterday's value; at five days ahead, the value from five days back.
+Matching the lead is the whole point, because a baseline that always used
+yesterday would beat every model at day 5 and mean nothing.
+
+On the energy-province sets, one day ahead:
+
+| | Persistence | Best model | Skill | Observed mean |
+|---|---|---|---|---|
+| 10 m wind, 12 airports | 1.28 m/s | NOAA GFS **0.89** | **0.52** | 3.06 m/s |
+| Daily irradiation, 10 PV points | 2,376 Wh/m² | ECMWF IFS **978** | **0.83** | 6,571 Wh/m² |
+
+Skill is `1 − MSE/MSE_persistence`: 0 is no better than doing nothing, 1 is
+perfect. Forecasting halves the squared error on wind and removes five sixths of
+it on irradiation — and **NOAA GFS five days out (1.12 m/s) is still closer than
+yesterday's wind (1.28)**.
+
+The more useful half of that table is how the two sides age. From day 1 to day 5
+the models lose 15 to 75 per cent, persistence only 19 to 21: it is already near
+the day-to-day variability of the place and has nowhere further to fall. That is
+why the skill number should be read at day 1 and distrusted at day 5, where an
+easy baseline flatters everyone.
+
+Persistence can only copy observations that are in the dataset, so the first
+days of each record, and any day the hourly-coverage rule discarded, have no
+baseline; the station-day counts are printed beside every number in the
+[leaderboard](reports/leaderboard/).
+
 ## The finding
 
 **There is no best model. There is a best model per variable, and the ranking

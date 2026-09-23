@@ -70,6 +70,9 @@ MODEL_LABEL = {
     "cma_grapes_global": "CMA GRAPES",
     "ecmwf_aifs025_single": "ECMWF AIFS (AI)",
     "gfs_graphcast025": "GraphCast (AI)",
+    # Not a model: the do-nothing baseline, carried here so that every table
+    # that labels a model can label it too.
+    "persistence": "持续法（基准）",
 }
 
 IS_AI = set(AI_MODELS)
